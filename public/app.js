@@ -43,7 +43,7 @@ const I18N = {
     addCategory: '+ Add category',
     addTable: '+ Add table',
     restaurantName: 'Restaurant Name',
-    logoUrl: 'Logo URL',
+    logoUrl: 'Logo',
     phone: 'Phone',
     address: 'Address',
     openingMessage: 'Opening message',
@@ -54,7 +54,7 @@ const I18N = {
     description: 'Description',
     price: 'Price',
     category: 'Category',
-    image: 'Image URL',
+    image: 'Image',
     available: 'Available',
     featured: 'Featured',
     cancel: 'Cancel',
@@ -70,6 +70,10 @@ const I18N = {
     loginFailed: 'Login failed. Please try again.',
     saved: 'Saved successfully',
     added: 'Added to cart',
+    chooseImage: 'Choose image',
+    uploading: 'Uploading...',
+    uploaded: 'Image uploaded',
+    uploadFailed: 'Image upload failed',
   },
   fr: {
     loading: 'Chargement...',
@@ -110,7 +114,7 @@ const I18N = {
     addCategory: '+ Ajouter une catégorie',
     addTable: '+ Ajouter une table',
     restaurantName: 'Nom du restaurant',
-    logoUrl: 'URL du logo',
+    logoUrl: 'Logo',
     phone: 'Téléphone',
     address: 'Adresse',
     openingMessage: "Message d'accueil",
@@ -121,7 +125,7 @@ const I18N = {
     description: 'Description',
     price: 'Prix',
     category: 'Catégorie',
-    image: 'URL de l\'image',
+    image: 'Image',
     available: 'Disponible',
     featured: 'Mis en avant',
     cancel: 'Annuler',
@@ -137,6 +141,10 @@ const I18N = {
     loginFailed: 'Échec de la connexion. Veuillez réessayer.',
     saved: 'Enregistré avec succès',
     added: 'Ajouté au panier',
+    chooseImage: 'Choisir une image',
+    uploading: 'Téléversement...',
+    uploaded: 'Image téléversée',
+    uploadFailed: "Échec du téléversement de l'image",
   },
   ar: {
     loading: 'جاري التحميل...',
@@ -177,7 +185,7 @@ const I18N = {
     addCategory: '+ إضافة تصنيف',
     addTable: '+ إضافة طاولة',
     restaurantName: 'اسم المطعم',
-    logoUrl: 'رابط الشعار',
+    logoUrl: 'الشعار',
     phone: 'الهاتف',
     address: 'العنوان',
     openingMessage: 'رسالة الترحيب',
@@ -188,7 +196,7 @@ const I18N = {
     description: 'الوصف',
     price: 'السعر',
     category: 'التصنيف',
-    image: 'رابط الصورة',
+    image: 'الصورة',
     available: 'متاح',
     featured: 'مميز',
     cancel: 'إلغاء',
@@ -204,6 +212,10 @@ const I18N = {
     loginFailed: 'فشل تسجيل الدخول. حاول مرة أخرى.',
     saved: 'تم الحفظ بنجاح',
     added: 'تمت الإضافة إلى السلة',
+    chooseImage: 'اختر صورة',
+    uploading: 'جاري الرفع...',
+    uploaded: 'تم رفع الصورة',
+    uploadFailed: 'فشل رفع الصورة',
   },
 };
 
@@ -409,6 +421,39 @@ function renderMenu() {
   });
 }
 
+/* ---------- image upload helper ----------
+   Wires a "choose image" file input + preview to the upload endpoint.
+   Calls onUploaded(url) once the upload succeeds; the caller decides
+   where that URL gets stored. */
+function wireImageUpload({ fileInputId, previewId, statusId, onUploaded }) {
+  const fileInput = document.getElementById(fileInputId);
+  const preview = document.getElementById(previewId);
+  const statusEl = document.getElementById(statusId);
+  if (!fileInput) return;
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    if (preview) preview.src = objectUrl;
+    if (statusEl) { statusEl.textContent = t('uploading'); statusEl.classList.remove('ok'); }
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+      let data = null;
+      try { data = await res.json(); } catch { data = null; }
+      if (!res.ok) throw new Error((data && data.error) || t('uploadFailed'));
+      onUploaded(data.url);
+      if (statusEl) { statusEl.textContent = t('uploaded'); statusEl.classList.add('ok'); }
+    } catch (err) {
+      if (statusEl) statusEl.textContent = '';
+      toast(err.message || t('uploadFailed'), 'error');
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  });
+}
+
 function placeholderImg() {
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="100%" height="100%" fill="#1a1d29"/></svg>`
@@ -608,9 +653,10 @@ function renderOrders() {
 
   const statuses = ['NEW', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'];
 
-  orders.forEach((order) => {
+  orders.forEach((order, idx) => {
     const card = document.createElement('div');
     card.className = 'order-card';
+    card.style.animationDelay = `${idx * 0.04}s`;
     const itemsLine = order.items.map((it) => `${escapeHtml(it.name)} x${it.qty}`).join(', ');
     card.innerHTML = `
       <div class="order-card-head">
@@ -661,9 +707,10 @@ function categoryName(id) {
 function renderAdminProducts() {
   const list = document.getElementById('admin-products-list');
   list.innerHTML = '';
-  (state.adminData.products || []).forEach((p) => {
+  (state.adminData.products || []).forEach((p, idx) => {
     const row = document.createElement('div');
     row.className = 'admin-item-card';
+    row.style.animationDelay = `${idx * 0.04}s`;
     row.innerHTML = `
       <img class="admin-item-img" src="${escapeAttr(p.image || placeholderImg())}" onerror="this.src='${placeholderImg()}'">
       <div class="admin-item-info">
@@ -688,9 +735,10 @@ function renderAdminProducts() {
 function renderAdminCategories() {
   const list = document.getElementById('admin-categories-list');
   list.innerHTML = '';
-  (state.adminData.categories || []).forEach((c) => {
+  (state.adminData.categories || []).forEach((c, idx) => {
     const row = document.createElement('div');
     row.className = 'admin-item-card';
+    row.style.animationDelay = `${idx * 0.04}s`;
     row.innerHTML = `
       <div class="admin-item-info">
         <div class="admin-item-title">${escapeHtml(c.name)}</div>
@@ -709,9 +757,10 @@ function renderAdminCategories() {
 function renderAdminTables() {
   const list = document.getElementById('admin-tables-list');
   list.innerHTML = '';
-  (state.adminData.tables || []).forEach((tbl) => {
+  (state.adminData.tables || []).forEach((tbl, idx) => {
     const row = document.createElement('div');
     row.className = 'admin-item-card';
+    row.style.animationDelay = `${idx * 0.04}s`;
     row.innerHTML = `
       <div class="admin-item-info">
         <div class="admin-item-title">${escapeHtml(tbl.name)} ${!tbl.active ? `<span class="badge-off">${t('disable')}</span>` : ''}</div>
@@ -731,6 +780,7 @@ function fillSettingsForm() {
   const s = state.adminData.settings || {};
   document.getElementById('setting-name').value = s.restaurant_name || '';
   document.getElementById('setting-logo').value = s.logo || '';
+  document.getElementById('setting-logo-preview').src = s.logo || placeholderImg();
   document.getElementById('setting-phone').value = s.phone || '';
   document.getElementById('setting-address').value = s.address || '';
   document.getElementById('setting-message').value = s.opening_message || '';
@@ -785,12 +835,24 @@ function openProductForm(product) {
     `<option value="${c.id}" ${product && product.category_id === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
   ).join('');
 
+  let currentImage = product ? (product.image || '') : '';
+
   const html = `
     <div class="field-group"><label>${t('name')}</label><input id="f-name" class="input" value="${escapeAttr(product ? product.name : '')}"></div>
     <div class="field-group"><label>${t('description')}</label><textarea id="f-desc" class="input">${escapeHtml(product ? product.description : '')}</textarea></div>
     <div class="field-group"><label>${t('price')}</label><input id="f-price" type="number" min="0" step="0.01" class="input" value="${product ? product.price : ''}"></div>
     <div class="field-group"><label>${t('category')}</label><select id="f-cat" class="input"><option value="">${t('noCategory')}</option>${options}</select></div>
-    <div class="field-group"><label>${t('image')}</label><input id="f-image" class="input" value="${escapeAttr(product ? product.image : '')}"></div>
+    <div class="field-group">
+      <label>${t('image')}</label>
+      <div class="image-upload-row">
+        <img id="f-image-preview" class="image-preview" src="${escapeAttr(currentImage || placeholderImg())}" onerror="this.src='${placeholderImg()}'">
+        <div class="image-upload-actions">
+          <label for="f-image-file" class="btn btn-ghost btn-sm">${t('chooseImage')}</label>
+          <input id="f-image-file" type="file" accept="image/*" class="hidden">
+          <span id="f-image-status" class="image-upload-status"></span>
+        </div>
+      </div>
+    </div>
     <div class="field-group toggle-row"><label>${t('available')}</label><label class="switch"><input id="f-available" type="checkbox" ${!product || product.available ? 'checked' : ''}><span class="slider"></span></label></div>
     <div class="field-group toggle-row"><label>${t('featured')}</label><label class="switch"><input id="f-featured" type="checkbox" ${product && product.featured ? 'checked' : ''}><span class="slider"></span></label></div>
     <button class="btn btn-primary btn-block" data-submit>${t('save')}</button>
@@ -802,7 +864,7 @@ function openProductForm(product) {
       description: document.getElementById('f-desc').value.trim(),
       price: Number(document.getElementById('f-price').value),
       category_id: document.getElementById('f-cat').value ? Number(document.getElementById('f-cat').value) : null,
-      image: document.getElementById('f-image').value.trim(),
+      image: currentImage,
       available: document.getElementById('f-available').checked,
       featured: document.getElementById('f-featured').checked,
     };
@@ -813,6 +875,13 @@ function openProductForm(product) {
     }
     toast(t('saved'), 'success');
     loadAdminData();
+  });
+
+  wireImageUpload({
+    fileInputId: 'f-image-file',
+    previewId: 'f-image-preview',
+    statusId: 'f-image-status',
+    onUploaded: (url) => { currentImage = url; },
   });
 }
 
@@ -944,6 +1013,13 @@ document.addEventListener('DOMContentLoaded', () => {
     try { await api('/api/admin/logout', { method: 'POST' }); } catch {}
     state.selectedTable = null;
     showScreen('screen-tables');
+  });
+
+  wireImageUpload({
+    fileInputId: 'setting-logo-file',
+    previewId: 'setting-logo-preview',
+    statusId: 'setting-logo-status',
+    onUploaded: (url) => { document.getElementById('setting-logo').value = url; },
   });
 
   document.getElementById('btn-add-product').addEventListener('click', () => openProductForm(null));
