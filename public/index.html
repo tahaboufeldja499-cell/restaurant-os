@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Restaurant OS</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="bg-fx" aria-hidden="true">
+  <span class="blob blob-1"></span>
+  <span class="blob blob-2"></span>
+  <span class="blob blob-3"></span>
+</div>
+
+<div id="toast-root" class="toast-root"></div>
+
+<!-- ============ LOADING ============ -->
+<div id="screen-loading" class="screen active">
+  <div class="loader-wrap">
+    <div class="spinner"></div>
+    <p data-i18n="loading">Loading...</p>
+  </div>
+</div>
+
+<!-- ============ CLOSED ============ -->
+<div id="screen-closed" class="screen">
+  <div class="glass card-center">
+    <div class="big-emoji">🔒</div>
+    <h1 data-i18n="closedTitle">The restaurant is currently closed</h1>
+    <p id="closed-message" class="muted"></p>
+  </div>
+</div>
+
+<!-- ============ TABLE SELECT ============ -->
+<div id="screen-tables" class="screen">
+  <header class="topbar">
+    <div class="brand">
+      <img id="brand-logo" class="brand-logo hidden" alt="" />
+      <span id="brand-name" class="brand-name">Restaurant OS</span>
+    </div>
+    <button id="btn-settings" class="icon-btn" data-i18n-title="settings" title="Settings">⚙️</button>
+  </header>
+
+  <main class="hero">
+    <h1 class="hero-title" data-i18n="heroTitle">Welcome 👋</h1>
+    <p class="hero-sub" data-i18n="heroSub">Choose your table and start your order</p>
+    <div id="tables-grid" class="tables-grid"></div>
+    <div id="tables-empty" class="empty-state hidden">
+      <p data-i18n="noTables">No tables available right now.</p>
+    </div>
+  </main>
+</div>
+
+<!-- ============ MENU ============ -->
+<div id="screen-menu" class="screen">
+  <header class="topbar">
+    <div class="brand">
+      <button id="btn-back-tables" class="icon-btn" data-i18n-title="back" title="Back">←</button>
+      <span id="menu-brand-name" class="brand-name">Restaurant OS</span>
+    </div>
+    <div class="topbar-right">
+      <span id="menu-table-pill" class="pill">Table 1</span>
+      <button id="btn-cart" class="icon-btn cart-btn" data-i18n-title="cart" title="Cart">
+        🛒<span id="cart-count" class="cart-count hidden">0</span>
+      </button>
+    </div>
+  </header>
+
+  <nav id="category-tabs" class="category-tabs"></nav>
+
+  <main id="products-grid" class="products-grid"></main>
+  <div id="products-empty" class="empty-state hidden">
+    <p data-i18n="noProducts">No products in this category yet.</p>
+  </div>
+</div>
+
+<!-- ============ CART DRAWER ============ -->
+<div id="cart-overlay" class="overlay hidden"></div>
+<aside id="cart-drawer" class="drawer">
+  <div class="drawer-head">
+    <h2 data-i18n="yourCart">Your cart</h2>
+    <button id="btn-close-cart" class="icon-btn">✕</button>
+  </div>
+  <div id="cart-items" class="cart-items"></div>
+  <div id="cart-empty" class="empty-state hidden">
+    <p data-i18n="cartEmpty">Your cart is empty</p>
+  </div>
+  <div class="drawer-foot">
+    <div class="cart-total-row">
+      <span data-i18n="total">Total</span>
+      <span id="cart-total">0 DA</span>
+    </div>
+    <button id="btn-confirm-order" class="btn btn-primary btn-block" data-i18n="confirmOrder">Confirm Order</button>
+  </div>
+</aside>
+
+<!-- ============ SUCCESS ============ -->
+<div id="screen-success" class="screen">
+  <div class="glass card-center success-card">
+    <div class="big-emoji success-emoji">🎉</div>
+    <h1 data-i18n="orderSuccess">Your order has been sent successfully</h1>
+    <p id="order-number" class="order-number"></p>
+    <button id="btn-new-order" class="btn btn-primary" data-i18n="newOrder">New order</button>
+  </div>
+</div>
+
+<!-- ============ SETTINGS MODAL ============ -->
+<div id="settings-overlay" class="overlay hidden"></div>
+<div id="settings-modal" class="modal">
+  <div class="modal-head">
+    <h2 data-i18n="settings">Settings</h2>
+    <button id="btn-close-settings" class="icon-btn">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="field-group">
+      <label data-i18n="language">Language</label>
+      <div class="lang-switch">
+        <button class="lang-btn" data-lang="ar">العربية</button>
+        <button class="lang-btn" data-lang="fr">Français</button>
+        <button class="lang-btn" data-lang="en">English</button>
+      </div>
+    </div>
+    <div class="field-group">
+      <button id="btn-open-admin" class="btn btn-ghost btn-block" data-i18n="admin">Admin</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADMIN LOGIN MODAL ============ -->
+<div id="admin-login-overlay" class="overlay hidden"></div>
+<div id="admin-login-modal" class="modal">
+  <div class="modal-head">
+    <h2 data-i18n="adminLogin">Admin Login</h2>
+    <button id="btn-close-admin-login" class="icon-btn">✕</button>
+  </div>
+  <div class="modal-body">
+    <div class="field-group">
+      <label data-i18n="adminCode">Admin Code</label>
+      <input id="admin-code-input" type="password" class="input" autocomplete="off" />
+    </div>
+    <p id="admin-login-error" class="error-text hidden" data-i18n="invalidCode">Invalid admin code</p>
+    <button id="btn-submit-admin-code" class="btn btn-primary btn-block" data-i18n="login">Login</button>
+  </div>
+</div>
+
+<!-- ============ ADMIN DASHBOARD ============ -->
+<div id="screen-admin" class="screen admin-screen">
+  <aside class="admin-sidebar">
+    <div class="admin-brand" data-i18n="admin">Admin</div>
+    <nav class="admin-nav">
+      <button class="admin-nav-btn active" data-view="dashboard" data-i18n="dashboard">Dashboard</button>
+      <button class="admin-nav-btn" data-view="orders" data-i18n="orders">Orders</button>
+      <button class="admin-nav-btn" data-view="products" data-i18n="products">Products</button>
+      <button class="admin-nav-btn" data-view="categories" data-i18n="categories">Categories</button>
+      <button class="admin-nav-btn" data-view="tables" data-i18n="tables">Tables</button>
+      <button class="admin-nav-btn" data-view="settings" data-i18n="restaurantSettings">Settings</button>
+    </nav>
+    <button id="btn-admin-logout" class="btn btn-ghost btn-block" data-i18n="logout">Logout</button>
+  </aside>
+
+  <nav class="admin-mobile-nav">
+    <button class="admin-nav-btn active" data-view="dashboard">📊</button>
+    <button class="admin-nav-btn" data-view="orders">🧾</button>
+    <button class="admin-nav-btn" data-view="products">🍔</button>
+    <button class="admin-nav-btn" data-view="categories">🏷️</button>
+    <button class="admin-nav-btn" data-view="tables">🪑</button>
+    <button class="admin-nav-btn" data-view="settings">⚙️</button>
+  </nav>
+
+  <main class="admin-main">
+    <header class="admin-topbar">
+      <button id="btn-exit-admin" class="icon-btn" title="Exit">←</button>
+      <h1 id="admin-view-title" data-i18n="dashboard">Dashboard</h1>
+    </header>
+
+    <!-- Dashboard -->
+    <section id="admin-view-dashboard" class="admin-view active">
+      <div class="stats-grid">
+        <div class="stat-card glass"><span class="stat-label" data-i18n="totalOrders">Total Orders</span><span id="stat-total" class="stat-value">0</span></div>
+        <div class="stat-card glass"><span class="stat-label" data-i18n="newOrdersLabel">New</span><span id="stat-new" class="stat-value">0</span></div>
+        <div class="stat-card glass"><span class="stat-label" data-i18n="preparing">Preparing</span><span id="stat-preparing" class="stat-value">0</span></div>
+        <div class="stat-card glass"><span class="stat-label" data-i18n="ready">Ready</span><span id="stat-ready" class="stat-value">0</span></div>
+        <div class="stat-card glass"><span class="stat-label" data-i18n="completed">Completed</span><span id="stat-completed" class="stat-value">0</span></div>
+        <div class="stat-card glass highlight"><span class="stat-label" data-i18n="totalRevenue">Total Revenue</span><span id="stat-revenue" class="stat-value">0 DA</span></div>
+      </div>
+    </section>
+
+    <!-- Orders -->
+    <section id="admin-view-orders" class="admin-view">
+      <div id="orders-list" class="orders-list"></div>
+      <div id="orders-empty" class="empty-state hidden"><p data-i18n="noOrders">No orders yet</p></div>
+    </section>
+
+    <!-- Products -->
+    <section id="admin-view-products" class="admin-view">
+      <button id="btn-add-product" class="btn btn-primary" data-i18n="addProduct">+ Add product</button>
+      <div id="admin-products-list" class="admin-cards-list"></div>
+    </section>
+
+    <!-- Categories -->
+    <section id="admin-view-categories" class="admin-view">
+      <button id="btn-add-category" class="btn btn-primary" data-i18n="addCategory">+ Add category</button>
+      <div id="admin-categories-list" class="admin-cards-list"></div>
+    </section>
+
+    <!-- Tables -->
+    <section id="admin-view-tables" class="admin-view">
+      <button id="btn-add-table" class="btn btn-primary" data-i18n="addTable">+ Add table</button>
+      <div id="admin-tables-list" class="admin-cards-list"></div>
+    </section>
+
+    <!-- Restaurant Settings -->
+    <section id="admin-view-settings" class="admin-view">
+      <div class="settings-form glass">
+        <div class="field-group">
+          <label data-i18n="restaurantName">Restaurant Name</label>
+          <input id="setting-name" class="input" />
+        </div>
+        <div class="field-group">
+          <label data-i18n="logoUrl">Logo URL</label>
+          <input id="setting-logo" class="input" />
+        </div>
+        <div class="field-group">
+          <label data-i18n="phone">Phone</label>
+          <input id="setting-phone" class="input" />
+        </div>
+        <div class="field-group">
+          <label data-i18n="address">Address</label>
+          <input id="setting-address" class="input" />
+        </div>
+        <div class="field-group">
+          <label data-i18n="openingMessage">Opening message</label>
+          <input id="setting-message" class="input" />
+        </div>
+        <div class="field-group toggle-row">
+          <label data-i18n="restaurantOpen">Restaurant Open</label>
+          <label class="switch">
+            <input id="setting-open" type="checkbox" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <button id="btn-save-settings" class="btn btn-primary" data-i18n="save">Save</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ GENERIC FORM MODAL (product/category/table editor) ============ -->
+<div id="form-overlay" class="overlay hidden"></div>
+<div id="form-modal" class="modal">
+  <div class="modal-head">
+    <h2 id="form-modal-title">Edit</h2>
+    <button id="btn-close-form" class="icon-btn">✕</button>
+  </div>
+  <div id="form-modal-body" class="modal-body"></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
