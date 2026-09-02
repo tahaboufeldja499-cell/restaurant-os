@@ -219,8 +219,16 @@
           <input id="setting-name" class="input" />
         </div>
         <div class="field-group">
-          <label data-i18n="logoUrl">Logo URL</label>
-          <input id="setting-logo" class="input" />
+          <label data-i18n="logoUrl">Logo</label>
+          <div class="image-upload-row">
+            <img id="setting-logo-preview" class="image-preview" alt="" />
+            <div class="image-upload-actions">
+              <label for="setting-logo-file" class="btn btn-ghost btn-sm" data-i18n="chooseImage">Choose image</label>
+              <input id="setting-logo-file" type="file" accept="image/*" class="hidden" />
+              <span id="setting-logo-status" class="image-upload-status"></span>
+            </div>
+            <input id="setting-logo" type="hidden" />
+          </div>
         </div>
         <div class="field-group">
           <label data-i18n="phone">Phone</label>
