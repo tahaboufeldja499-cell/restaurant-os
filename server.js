@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const Database = require('better-sqlite3');
+const multer = require('multer');
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -26,12 +27,7 @@ if (ADMIN_CODE === 'CHANGE_THIS_ADMIN_CODE' || SESSION_SECRET === 'CHANGE_THIS_S
 // ---------------------------------------------------------------------------
 // Database setup
 // ---------------------------------------------------------------------------
-const DATA_DIR = path.join(__dirname, 'data');
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-const DB_PATH = path.join(DATA_DIR, 'restaurant.db');
+const DB_PATH = path.join(__dirname, 'data', 'restaurant.db');
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -318,6 +314,42 @@ app.disable('x-powered-by');
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ---------------------------------------------------------------------------
+// Image uploads (product photos, logo) — stored on local disk under
+// public/uploads and served as static files at /uploads/<file>.
+// NOTE: on hosts with an ephemeral filesystem (e.g. Render's free tier),
+// uploaded files are lost on redeploy/restart unless a persistent disk is
+// attached and mounted at the uploads directory.
+// ---------------------------------------------------------------------------
+const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+    filename: (req, file, cb) => {
+      const ext = (path.extname(file.originalname) || '').toLowerCase().slice(0, 10);
+      const safeExt = /^\.(jpg|jpeg|png|gif|webp|avif)$/.test(ext) ? ext : '.jpg';
+      cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${safeExt}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (!/^image\/(jpeg|png|gif|webp|avif)$/.test(file.mimetype)) {
+      return cb(new Error('Only image files are allowed'));
+    }
+    cb(null, true);
+  },
+});
+
+app.post('/api/admin/upload', requireAdmin, (req, res) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || 'Upload failed' });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    res.status(201).json({ url: `/uploads/${req.file.filename}` });
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Public API
