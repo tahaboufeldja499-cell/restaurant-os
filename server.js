@@ -29,7 +29,7 @@ if (ADMIN_CODE === 'CHANGE_THIS_ADMIN_CODE' || SESSION_SECRET === 'CHANGE_THIS_S
 // ---------------------------------------------------------------------------
 const DATA_DIR = path.join(__dirname, 'data');
 
-// إنشاء مجلد data تلقائياً إذا لم يكن موجوداً لمنع خطأ TypeError في Render
+// إنشاء مجلد data تلقائياً إذا لم يكن موجوداً
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
