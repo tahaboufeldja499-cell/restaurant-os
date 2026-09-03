@@ -74,6 +74,16 @@ const I18N = {
     uploading: 'Uploading...',
     uploaded: 'Image uploaded',
     uploadFailed: 'Image upload failed',
+    confirmTable: 'Confirm',
+    tableOccupied: 'Occupied',
+    tableEmpty: 'Empty',
+    markEmpty: 'Mark empty',
+    markOccupied: 'Mark occupied',
+    delivered: 'Delivered',
+    orderArrivedTitle: 'Your order has arrived!',
+    orderArrivedSub: 'Order #{id} is at your table',
+    confirmReceipt: 'Confirm receipt',
+    receiptConfirmed: 'Thanks! Order closed',
   },
   fr: {
     loading: 'Chargement...',
@@ -145,6 +155,16 @@ const I18N = {
     uploading: 'Téléversement...',
     uploaded: 'Image téléversée',
     uploadFailed: "Échec du téléversement de l'image",
+    confirmTable: 'Confirmer',
+    tableOccupied: 'Occupée',
+    tableEmpty: 'Libre',
+    markEmpty: 'Marquer libre',
+    markOccupied: 'Marquer occupée',
+    delivered: 'Livrée',
+    orderArrivedTitle: 'Votre commande est arrivée !',
+    orderArrivedSub: 'La commande #{id} est à votre table',
+    confirmReceipt: 'Confirmer la réception',
+    receiptConfirmed: 'Merci ! Commande clôturée',
   },
   ar: {
     loading: 'جاري التحميل...',
@@ -216,6 +236,16 @@ const I18N = {
     uploading: 'جاري الرفع...',
     uploaded: 'تم رفع الصورة',
     uploadFailed: 'فشل رفع الصورة',
+    confirmTable: 'تأكيد',
+    tableOccupied: 'مشغولة',
+    tableEmpty: 'فارغة',
+    markEmpty: 'تعيين كفارغة',
+    markOccupied: 'تعيين كمشغولة',
+    delivered: 'تم التوصيل',
+    orderArrivedTitle: 'وصل طلبك! 🍽️',
+    orderArrivedSub: 'الطلب #{id} وصل إلى طاولتك',
+    confirmReceipt: 'تأكيد الاستلام',
+    receiptConfirmed: 'شكرًا! تم إغلاق الطلب',
   },
 };
 
@@ -252,6 +282,7 @@ function applyLanguage(lang) {
 const state = {
   publicData: null,
   selectedTable: null,
+  pendingTable: null,
   activeCategory: 'all',
   cart: [], // { productId, name, price, image, qty }
   adminData: null,
@@ -304,6 +335,56 @@ function showScreen(id) {
 }
 
 /* ============================================================================
+   Table lock (QR code / one-time manual selection)
+   ========================================================================== */
+const TABLE_STORAGE_KEY = 'ros_table';
+
+function getLockedTable() {
+  try {
+    const raw = localStorage.getItem(TABLE_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data && data.locked && Number.isInteger(data.id)) return data;
+  } catch { /* ignore malformed storage */ }
+  return null;
+}
+
+function persistLockedTable(table) {
+  localStorage.setItem(TABLE_STORAGE_KEY, JSON.stringify({ id: table.id, name: table.name, locked: true }));
+}
+
+function updateTablePill(table) {
+  document.getElementById('menu-table-pill').textContent = `${t('table')} ${table.name.replace(/[^0-9]/g, '') || table.name}`;
+}
+
+/* Locks the customer into this table for the rest of the browser session:
+   persists it to localStorage (survives reloads and Render free-tier
+   spin-downs) and permanently hides the "change table" affordance. */
+function lockTableSelection(table) {
+  state.selectedTable = table;
+  state.pendingTable = null;
+  persistLockedTable(table);
+  document.getElementById('btn-back-tables').classList.add('hidden');
+  hideTableConfirmBar();
+  updateTablePill(table);
+  renderMenu();
+  showScreen('screen-menu');
+}
+
+/* Returns the customer to wherever they belong: their locked table's menu
+   if they have one, or the one-time table picker if they don't (used by
+   "new order" and when leaving admin mode — never wipes an existing lock). */
+function goToCustomerHome() {
+  if (state.selectedTable) {
+    renderMenu();
+    showScreen('screen-menu');
+  } else {
+    renderTables();
+    showScreen('screen-tables');
+  }
+}
+
+/* ============================================================================
    Init
    ========================================================================== */
 async function init() {
@@ -328,9 +409,39 @@ async function init() {
       logo.classList.remove('hidden');
     }
 
-    renderTables();
-    showScreen('screen-tables');
+    // 1) QR code entry — ?table=<id> — always wins and (re)locks the table.
+    const params = new URLSearchParams(window.location.search);
+    const qrTableId = Number(params.get('table'));
+    let resolvedTable = null;
+
+    if (Number.isInteger(qrTableId) && qrTableId > 0) {
+      const match = data.tables.find((tb) => tb.id === qrTableId);
+      if (match) {
+        resolvedTable = match;
+        // Clean the URL so a refresh relies on localStorage, not the query string.
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+
+    // 2) Otherwise, resume a previously locked table (manual pick or earlier QR scan).
+    if (!resolvedTable) {
+      const locked = getLockedTable();
+      if (locked) {
+        const match = data.tables.find((tb) => tb.id === locked.id);
+        resolvedTable = match || { id: locked.id, name: locked.name };
+      }
+    }
+
+    if (resolvedTable) {
+      lockTableSelection(resolvedTable);
+    } else {
+      // 3) First visit, no QR — one-time manual selection screen.
+      renderTables();
+      showScreen('screen-tables');
+    }
+
     applyLanguage(currentLang);
+    startOrderPolling();
   } catch (err) {
     toast(err.message, 'error');
   }
@@ -345,6 +456,8 @@ function renderTables() {
   const tables = (state.publicData && state.publicData.tables) || [];
   grid.innerHTML = '';
   empty.classList.toggle('hidden', tables.length > 0);
+  state.pendingTable = null;
+  hideTableConfirmBar();
 
   tables.forEach((table, idx) => {
     const card = document.createElement('div');
@@ -352,18 +465,26 @@ function renderTables() {
     card.style.animationDelay = `${idx * 0.03}s`;
     card.innerHTML = `<span class="table-icon">🍽️</span><span class="table-name">${escapeHtml(table.name)}</span>`;
     card.addEventListener('click', () => {
-      card.classList.add('selecting');
-      setTimeout(() => selectTable(table), 180);
+      document.querySelectorAll('.table-card').forEach((c) => c.classList.remove('selected'));
+      card.classList.add('selected');
+      state.pendingTable = table;
+      showTableConfirmBar(table);
     });
     grid.appendChild(card);
   });
 }
 
-function selectTable(table) {
-  state.selectedTable = table;
-  document.getElementById('menu-table-pill').textContent = `${t('table')} ${table.name.replace(/[^0-9]/g, '') || table.name}`;
-  renderMenu();
-  showScreen('screen-menu');
+function showTableConfirmBar(table) {
+  document.getElementById('table-confirm-text').textContent =
+    `${t('table')} ${table.name.replace(/[^0-9]/g, '') || table.name}`;
+  document.getElementById('table-confirm-bar').classList.remove('hidden');
+}
+function hideTableConfirmBar() {
+  document.getElementById('table-confirm-bar').classList.add('hidden');
+}
+function confirmTableSelection() {
+  if (!state.pendingTable) return;
+  lockTableSelection(state.pendingTable);
 }
 
 /* ============================================================================
@@ -567,11 +688,108 @@ async function confirmOrder() {
     renderCart();
     closeCart();
     showScreen('screen-success');
+    addTrackedOrder(result.orderId);
+    startOrderPolling();
   } catch (err) {
     toast(err.message === 'Restaurant is currently closed' ? t('closedCannotOrder') : (err.message || t('orderFailed')), 'error');
   } finally {
     btn.disabled = false;
   }
+}
+
+/* ============================================================================
+   Order tracking + delivery notifications (polling)
+   Survives page reloads / Render free-tier spin-downs via localStorage —
+   we only ever store order ids here, never sensitive data.
+   ========================================================================== */
+const TRACKED_ORDERS_KEY = 'ros_active_orders';
+const POLL_INTERVAL_MS = 5000;
+let pollTimer = null;
+
+function getTrackedOrders() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(TRACKED_ORDERS_KEY) || '[]');
+    return Array.isArray(arr) ? arr.filter((n) => Number.isInteger(n)) : [];
+  } catch {
+    return [];
+  }
+}
+function setTrackedOrders(arr) {
+  localStorage.setItem(TRACKED_ORDERS_KEY, JSON.stringify(arr));
+}
+function addTrackedOrder(id) {
+  const arr = getTrackedOrders();
+  if (!arr.includes(id)) {
+    arr.push(id);
+    setTrackedOrders(arr);
+  }
+}
+function removeTrackedOrder(id) {
+  setTrackedOrders(getTrackedOrders().filter((x) => x !== id));
+  const el = document.getElementById(`delivery-notify-${id}`);
+  if (el) el.remove();
+}
+
+function startOrderPolling() {
+  if (pollTimer) return;
+  pollTrackedOrders();
+  pollTimer = setInterval(pollTrackedOrders, POLL_INTERVAL_MS);
+}
+
+async function pollTrackedOrders() {
+  const ids = getTrackedOrders();
+  if (ids.length === 0) return;
+  try {
+    const data = await api(`/api/orders/status?ids=${ids.join(',')}`);
+    const returnedIds = new Set();
+    const stillActive = [];
+    (data.orders || []).forEach((o) => {
+      returnedIds.add(o.id);
+      if (o.status === 'DELIVERED') {
+        showDeliveryNotification(o);
+        stillActive.push(o.id);
+      } else if (o.status === 'COMPLETED' || o.status === 'CANCELLED') {
+        removeTrackedOrder(o.id);
+      } else {
+        stillActive.push(o.id);
+      }
+    });
+    // Orders the server no longer knows about (deleted) shouldn't be tracked forever.
+    ids.forEach((id) => {
+      if (!returnedIds.has(id)) removeTrackedOrder(id);
+    });
+    setTrackedOrders(stillActive);
+  } catch {
+    // Network hiccup or a spinning-down free-tier server — just retry on the next tick.
+  }
+}
+
+function showDeliveryNotification(order) {
+  if (document.getElementById(`delivery-notify-${order.id}`)) return; // already showing
+  const root = document.getElementById('delivery-notify-root');
+  const card = document.createElement('div');
+  card.className = 'delivery-notify-card';
+  card.id = `delivery-notify-${order.id}`;
+  card.innerHTML = `
+    <div class="delivery-notify-icon">🍽️</div>
+    <div class="delivery-notify-text">
+      <strong>${escapeHtml(t('orderArrivedTitle'))}</strong>
+      <span>${escapeHtml(t('orderArrivedSub').replace('{id}', order.id))}</span>
+    </div>
+    <button class="btn btn-sm" data-confirm-id="${order.id}">${escapeHtml(t('confirmReceipt'))}</button>
+  `;
+  card.querySelector('[data-confirm-id]').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      await api(`/api/orders/${order.id}/confirm`, { method: 'POST' });
+      removeTrackedOrder(order.id);
+      toast(t('receiptConfirmed'), 'success');
+    } catch (err) {
+      e.target.disabled = false;
+      toast(err.message, 'error');
+    }
+  });
+  root.appendChild(card);
 }
 
 /* ============================================================================
@@ -605,6 +823,7 @@ async function submitAdminCode() {
    Admin dashboard
    ========================================================================== */
 async function enterAdmin() {
+  closeCart();
   showScreen('screen-admin');
   switchAdminView('dashboard');
   await Promise.all([loadStats(), loadAdminData()]);
@@ -627,6 +846,7 @@ async function loadStats() {
     document.getElementById('stat-new').textContent = stats.newOrders;
     document.getElementById('stat-preparing').textContent = stats.preparing;
     document.getElementById('stat-ready').textContent = stats.ready;
+    document.getElementById('stat-delivered').textContent = stats.delivered;
     document.getElementById('stat-completed').textContent = stats.completed;
     document.getElementById('stat-revenue').textContent = formatPrice(stats.totalRevenue);
   } catch (err) {
@@ -651,7 +871,7 @@ function renderOrders() {
   list.innerHTML = '';
   empty.classList.toggle('hidden', orders.length > 0);
 
-  const statuses = ['NEW', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'];
+  const statuses = ['NEW', 'PREPARING', 'READY', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
 
   orders.forEach((order, idx) => {
     const card = document.createElement('div');
@@ -761,19 +981,37 @@ function renderAdminTables() {
     const row = document.createElement('div');
     row.className = 'admin-item-card';
     row.style.animationDelay = `${idx * 0.04}s`;
+    const occupied = tbl.status === 'occupied';
     row.innerHTML = `
       <div class="admin-item-info">
-        <div class="admin-item-title">${escapeHtml(tbl.name)} ${!tbl.active ? `<span class="badge-off">${t('disable')}</span>` : ''}</div>
+        <div class="admin-item-title">
+          ${escapeHtml(tbl.name)}
+          ${!tbl.active ? `<span class="badge-off">${t('disable')}</span>` : ''}
+          <span class="badge-status ${occupied ? 'occupied' : 'empty'}">${occupied ? t('tableOccupied') : t('tableEmpty')}</span>
+        </div>
       </div>
       <div class="admin-item-actions">
+        <button class="btn btn-ghost btn-sm" data-action="toggle-status">${occupied ? t('markEmpty') : t('markOccupied')}</button>
         <button class="btn btn-ghost btn-sm" data-action="edit">${t('edit')}</button>
         <button class="btn btn-ghost btn-sm" data-action="toggle">${tbl.active ? t('disable') : t('enable')}</button>
       </div>
     `;
     row.querySelector('[data-action="edit"]').addEventListener('click', () => openTableForm(tbl));
     row.querySelector('[data-action="toggle"]').addEventListener('click', () => toggleTable(tbl));
+    row.querySelector('[data-action="toggle-status"]').addEventListener('click', () => toggleTableStatus(tbl));
     list.appendChild(row);
   });
+}
+
+async function toggleTableStatus(table) {
+  try {
+    const newStatus = table.status === 'occupied' ? 'empty' : 'occupied';
+    await api(`/api/admin/tables/${table.id}`, { method: 'PATCH', body: { status: newStatus } });
+    toast(t('saved'), 'success');
+    loadAdminData();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
 }
 
 function fillSettingsForm() {
@@ -960,6 +1198,7 @@ document.addEventListener('DOMContentLoaded', () => {
   init();
 
   document.getElementById('btn-settings').addEventListener('click', () => openModal('settings-overlay', 'settings-modal'));
+  document.getElementById('btn-menu-settings').addEventListener('click', () => openModal('settings-overlay', 'settings-modal'));
   document.getElementById('btn-close-settings').addEventListener('click', () => closeModal('settings-overlay', 'settings-modal'));
   document.getElementById('settings-overlay').addEventListener('click', () => closeModal('settings-overlay', 'settings-modal'));
 
@@ -988,8 +1227,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btn-back-tables').addEventListener('click', () => {
-    state.selectedTable = null;
-    showScreen('screen-tables');
+    // Table changes are locked once set (QR scan or one-time manual pick),
+    // so this button stays hidden — this listener is a harmless no-op safeguard.
+    goToCustomerHome();
   });
 
   document.getElementById('btn-cart').addEventListener('click', openCart);
@@ -997,22 +1237,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cart-overlay').addEventListener('click', closeCart);
   document.getElementById('btn-confirm-order').addEventListener('click', confirmOrder);
 
+  document.getElementById('btn-confirm-table').addEventListener('click', confirmTableSelection);
+
   document.getElementById('btn-new-order').addEventListener('click', () => {
-    state.selectedTable = null;
-    showScreen('screen-tables');
+    goToCustomerHome();
   });
 
   document.querySelectorAll('.admin-nav-btn').forEach((btn) => {
     btn.addEventListener('click', () => switchAdminView(btn.dataset.view));
   });
   document.getElementById('btn-exit-admin').addEventListener('click', () => {
-    state.selectedTable = null;
-    showScreen('screen-tables');
+    goToCustomerHome();
   });
   document.getElementById('btn-admin-logout').addEventListener('click', async () => {
     try { await api('/api/admin/logout', { method: 'POST' }); } catch {}
-    state.selectedTable = null;
-    showScreen('screen-tables');
+    goToCustomerHome();
   });
 
   wireImageUpload({
