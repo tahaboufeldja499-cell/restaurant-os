@@ -1,768 +1,1271 @@
-// Restaurant OS — backend server
-// Node.js + Express + better-sqlite3
 'use strict';
 
-require('dotenv').config();
+/* ============================================================================
+   i18n
+   ========================================================================== */
+const I18N = {
+  en: {
+    loading: 'Loading...',
+    closedTitle: 'The restaurant is currently closed',
+    heroTitle: 'Welcome 👋',
+    heroSub: 'Choose your table and start your order',
+    noTables: 'No tables available right now.',
+    settings: 'Settings',
+    back: 'Back',
+    cart: 'Cart',
+    yourCart: 'Your cart',
+    cartEmpty: 'Your cart is empty',
+    total: 'Total',
+    confirmOrder: 'Confirm Order',
+    orderSuccess: 'Your order has been sent successfully 🎉',
+    newOrder: 'New order',
+    language: 'Language',
+    admin: 'Admin',
+    adminLogin: 'Admin Login',
+    adminCode: 'Admin Code',
+    invalidCode: 'Invalid admin code',
+    login: 'Login',
+    dashboard: 'Dashboard',
+    orders: 'Orders',
+    products: 'Products',
+    categories: 'Categories',
+    tables: 'Tables',
+    restaurantSettings: 'Settings',
+    logout: 'Logout',
+    totalOrders: 'Total Orders',
+    newOrdersLabel: 'New',
+    preparing: 'Preparing',
+    ready: 'Ready',
+    completed: 'Completed',
+    totalRevenue: 'Total Revenue',
+    noOrders: 'No orders yet',
+    addProduct: '+ Add product',
+    addCategory: '+ Add category',
+    addTable: '+ Add table',
+    restaurantName: 'Restaurant Name',
+    logoUrl: 'Logo',
+    phone: 'Phone',
+    address: 'Address',
+    openingMessage: 'Opening message',
+    restaurantOpen: 'Restaurant Open',
+    save: 'Save',
+    noProducts: 'No products in this category yet.',
+    name: 'Name',
+    description: 'Description',
+    price: 'Price',
+    category: 'Category',
+    image: 'Image',
+    available: 'Available',
+    featured: 'Featured',
+    cancel: 'Cancel',
+    edit: 'Edit',
+    delete: 'Delete',
+    disable: 'Disable',
+    enable: 'Enable',
+    confirmDelete: 'Are you sure you want to delete this?',
+    table: 'Table',
+    noCategory: 'Uncategorized',
+    closedCannotOrder: 'The restaurant is closed. Ordering is not available right now.',
+    orderFailed: 'Could not send your order. Please try again.',
+    loginFailed: 'Login failed. Please try again.',
+    saved: 'Saved successfully',
+    added: 'Added to cart',
+    chooseImage: 'Choose image',
+    uploading: 'Uploading...',
+    uploaded: 'Image uploaded',
+    uploadFailed: 'Image upload failed',
+    confirmTable: 'Confirm',
+    tableOccupied: 'Occupied',
+    tableEmpty: 'Empty',
+    markEmpty: 'Mark empty',
+    markOccupied: 'Mark occupied',
+    delivered: 'Delivered',
+    orderArrivedTitle: 'Your order has arrived!',
+    orderArrivedSub: 'Order #{id} is at your table',
+    confirmReceipt: 'Confirm receipt',
+    receiptConfirmed: 'Thanks! Order closed',
+  },
+  fr: {
+    loading: 'Chargement...',
+    closedTitle: "Le restaurant est actuellement fermé",
+    heroTitle: 'Bienvenue 👋',
+    heroSub: 'Choisissez votre table et commencez votre commande',
+    noTables: 'Aucune table disponible pour le moment.',
+    settings: 'Paramètres',
+    back: 'Retour',
+    cart: 'Panier',
+    yourCart: 'Votre panier',
+    cartEmpty: 'Votre panier est vide',
+    total: 'Total',
+    confirmOrder: 'Confirmer la commande',
+    orderSuccess: 'Votre commande a été envoyée avec succès 🎉',
+    newOrder: 'Nouvelle commande',
+    language: 'Langue',
+    admin: 'Admin',
+    adminLogin: 'Connexion Admin',
+    adminCode: 'Code Admin',
+    invalidCode: 'Code admin invalide',
+    login: 'Connexion',
+    dashboard: 'Tableau de bord',
+    orders: 'Commandes',
+    products: 'Produits',
+    categories: 'Catégories',
+    tables: 'Tables',
+    restaurantSettings: 'Paramètres',
+    logout: 'Déconnexion',
+    totalOrders: 'Total des commandes',
+    newOrdersLabel: 'Nouvelles',
+    preparing: 'En préparation',
+    ready: 'Prêtes',
+    completed: 'Terminées',
+    totalRevenue: 'Revenu total',
+    noOrders: 'Aucune commande pour le moment',
+    addProduct: '+ Ajouter un produit',
+    addCategory: '+ Ajouter une catégorie',
+    addTable: '+ Ajouter une table',
+    restaurantName: 'Nom du restaurant',
+    logoUrl: 'Logo',
+    phone: 'Téléphone',
+    address: 'Adresse',
+    openingMessage: "Message d'accueil",
+    restaurantOpen: 'Restaurant ouvert',
+    save: 'Enregistrer',
+    noProducts: 'Aucun produit dans cette catégorie.',
+    name: 'Nom',
+    description: 'Description',
+    price: 'Prix',
+    category: 'Catégorie',
+    image: 'Image',
+    available: 'Disponible',
+    featured: 'Mis en avant',
+    cancel: 'Annuler',
+    edit: 'Modifier',
+    delete: 'Supprimer',
+    disable: 'Désactiver',
+    enable: 'Activer',
+    confirmDelete: 'Voulez-vous vraiment supprimer cet élément ?',
+    table: 'Table',
+    noCategory: 'Sans catégorie',
+    closedCannotOrder: "Le restaurant est fermé. Les commandes ne sont pas disponibles.",
+    orderFailed: "Impossible d'envoyer votre commande. Veuillez réessayer.",
+    loginFailed: 'Échec de la connexion. Veuillez réessayer.',
+    saved: 'Enregistré avec succès',
+    added: 'Ajouté au panier',
+    chooseImage: 'Choisir une image',
+    uploading: 'Téléversement...',
+    uploaded: 'Image téléversée',
+    uploadFailed: "Échec du téléversement de l'image",
+    confirmTable: 'Confirmer',
+    tableOccupied: 'Occupée',
+    tableEmpty: 'Libre',
+    markEmpty: 'Marquer libre',
+    markOccupied: 'Marquer occupée',
+    delivered: 'Livrée',
+    orderArrivedTitle: 'Votre commande est arrivée !',
+    orderArrivedSub: 'La commande #{id} est à votre table',
+    confirmReceipt: 'Confirmer la réception',
+    receiptConfirmed: 'Merci ! Commande clôturée',
+  },
+  ar: {
+    loading: 'جاري التحميل...',
+    closedTitle: 'المطعم مغلق حاليًا',
+    heroTitle: 'مرحبًا بك 👋',
+    heroSub: 'اختر طاولتك وابدأ طلبك',
+    noTables: 'لا توجد طاولات متاحة حاليًا.',
+    settings: 'الإعدادات',
+    back: 'رجوع',
+    cart: 'السلة',
+    yourCart: 'سلتك',
+    cartEmpty: 'السلة فارغة',
+    total: 'المجموع',
+    confirmOrder: 'تأكيد الطلب',
+    orderSuccess: 'تم إرسال طلبك بنجاح 🎉',
+    newOrder: 'طلب جديد',
+    language: 'اللغة',
+    admin: 'الإدارة',
+    adminLogin: 'دخول الإدارة',
+    adminCode: 'رمز الإدارة',
+    invalidCode: 'رمز الإدارة غير صحيح',
+    login: 'دخول',
+    dashboard: 'لوحة التحكم',
+    orders: 'الطلبات',
+    products: 'المنتجات',
+    categories: 'التصنيفات',
+    tables: 'الطاولات',
+    restaurantSettings: 'إعدادات المطعم',
+    logout: 'تسجيل الخروج',
+    totalOrders: 'إجمالي الطلبات',
+    newOrdersLabel: 'جديدة',
+    preparing: 'قيد التحضير',
+    ready: 'جاهزة',
+    completed: 'مكتملة',
+    totalRevenue: 'إجمالي الإيرادات',
+    noOrders: 'لا توجد طلبات حتى الآن',
+    addProduct: '+ إضافة منتج',
+    addCategory: '+ إضافة تصنيف',
+    addTable: '+ إضافة طاولة',
+    restaurantName: 'اسم المطعم',
+    logoUrl: 'الشعار',
+    phone: 'الهاتف',
+    address: 'العنوان',
+    openingMessage: 'رسالة الترحيب',
+    restaurantOpen: 'المطعم مفتوح',
+    save: 'حفظ',
+    noProducts: 'لا توجد منتجات في هذا التصنيف حتى الآن.',
+    name: 'الاسم',
+    description: 'الوصف',
+    price: 'السعر',
+    category: 'التصنيف',
+    image: 'الصورة',
+    available: 'متاح',
+    featured: 'مميز',
+    cancel: 'إلغاء',
+    edit: 'تعديل',
+    delete: 'حذف',
+    disable: 'تعطيل',
+    enable: 'تفعيل',
+    confirmDelete: 'هل أنت متأكد أنك تريد حذف هذا العنصر؟',
+    table: 'طاولة',
+    noCategory: 'بدون تصنيف',
+    closedCannotOrder: 'المطعم مغلق حاليًا. لا يمكن إرسال الطلبات الآن.',
+    orderFailed: 'تعذر إرسال طلبك. الرجاء المحاولة مرة أخرى.',
+    loginFailed: 'فشل تسجيل الدخول. حاول مرة أخرى.',
+    saved: 'تم الحفظ بنجاح',
+    added: 'تمت الإضافة إلى السلة',
+    chooseImage: 'اختر صورة',
+    uploading: 'جاري الرفع...',
+    uploaded: 'تم رفع الصورة',
+    uploadFailed: 'فشل رفع الصورة',
+    confirmTable: 'تأكيد',
+    tableOccupied: 'مشغولة',
+    tableEmpty: 'فارغة',
+    markEmpty: 'تعيين كفارغة',
+    markOccupied: 'تعيين كمشغولة',
+    delivered: 'تم التوصيل',
+    orderArrivedTitle: 'وصل طلبك! 🍽️',
+    orderArrivedSub: 'الطلب #{id} وصل إلى طاولتك',
+    confirmReceipt: 'تأكيد الاستلام',
+    receiptConfirmed: 'شكرًا! تم إغلاق الطلب',
+  },
+};
 
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
-const express = require('express');
-const cookieParser = require('cookie-parser');
-const Database = require('better-sqlite3');
-const multer = require('multer');
+let currentLang = localStorage.getItem('ros_lang') || 'ar';
 
-const PORT = process.env.PORT || 3000;
-const NODE_ENV = process.env.NODE_ENV || 'development';
-const ADMIN_CODE = process.env.ADMIN_CODE || 'CHANGE_THIS_ADMIN_CODE';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'CHANGE_THIS_SESSION_SECRET';
-const SESSION_HOURS = Number(process.env.SESSION_HOURS || 12);
-const SESSION_COOKIE = 'ros_admin_session';
-
-if (ADMIN_CODE === 'CHANGE_THIS_ADMIN_CODE' || SESSION_SECRET === 'CHANGE_THIS_SESSION_SECRET') {
-  console.warn('\n[SECURITY WARNING] You are using the default ADMIN_CODE and/or SESSION_SECRET.');
-  console.warn('Set real values in your .env file before deploying to production.\n');
+function t(key) {
+  return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
 }
 
-// ---------------------------------------------------------------------------
-// Database setup
-// ---------------------------------------------------------------------------
-const DB_PATH = path.join(__dirname, 'data', 'restaurant.db');
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS settings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key TEXT UNIQUE NOT NULL,
-    value TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS tables (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    active INTEGER NOT NULL DEFAULT 1,
-    status TEXT NOT NULL DEFAULT 'empty'
-  );
-
-  CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    description TEXT DEFAULT '',
-    price REAL NOT NULL,
-    category_id INTEGER,
-    image TEXT DEFAULT '',
-    available INTEGER NOT NULL DEFAULT 1,
-    featured INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    table_id INTEGER,
-    table_name TEXT NOT NULL,
-    total REAL NOT NULL,
-    status TEXT NOT NULL DEFAULT 'NEW',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS order_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER NOT NULL,
-    product_id INTEGER,
-    name TEXT NOT NULL,
-    price REAL NOT NULL,
-    qty INTEGER NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
-  );
-`);
-
-// ---------------------------------------------------------------------------
-// Migrations — add columns that may be missing on a database created by an
-// older version of this app, so upgrading in place never breaks.
-// ---------------------------------------------------------------------------
-function ensureColumn(table, column, definition) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
-  if (!cols.includes(column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+function applyLanguage(lang) {
+  currentLang = I18N[lang] ? lang : 'en';
+  localStorage.setItem('ros_lang', currentLang);
+  document.documentElement.lang = currentLang;
+  document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
+  });
+  document.querySelectorAll('.lang-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.lang === currentLang);
+  });
+  if (state.publicData) {
+    renderTables();
+    renderMenu();
+    renderCart();
   }
 }
-ensureColumn('tables', 'status', "TEXT NOT NULL DEFAULT 'empty'");
-ensureColumn('orders', 'table_id', 'INTEGER');
 
-// Best-effort backfill: link legacy orders (which only stored table_name) to
-// their table_id by matching the name, so table-status logic works for them.
-db.exec(`
-  UPDATE orders SET table_id = (SELECT id FROM tables WHERE tables.name = orders.table_name)
-  WHERE table_id IS NULL
-`);
+/* ============================================================================
+   State
+   ========================================================================== */
+const state = {
+  publicData: null,
+  selectedTable: null,
+  pendingTable: null,
+  activeCategory: 'all',
+  cart: [], // { productId, name, price, image, qty }
+  adminData: null,
+  adminOrders: null,
+  currency: 'DA',
+};
 
-// ---------------------------------------------------------------------------
-// Seed demo data on first run
-// ---------------------------------------------------------------------------
-function seedIfEmpty() {
-  const tableCount = db.prepare('SELECT COUNT(*) AS c FROM tables').get().c;
-  if (tableCount === 0) {
-    const insertTable = db.prepare('INSERT INTO tables (name, active) VALUES (?, 1)');
-    const insertMany = db.transaction((n) => {
-      for (let i = 1; i <= n; i++) insertTable.run(`Table ${i}`);
+/* ============================================================================
+   API helpers
+   ========================================================================== */
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    method: options.method || 'GET',
+    headers: options.body ? { 'Content-Type': 'application/json' } : {},
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    credentials: 'same-origin',
+  });
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  if (!res.ok) {
+    const error = new Error((data && data.error) || `Request failed (${res.status})`);
+    error.status = res.status;
+    error.data = data;
+    throw error;
+  }
+  return data;
+}
+
+/* ============================================================================
+   Toasts
+   ========================================================================== */
+function toast(message, type = 'info') {
+  const root = document.getElementById('toast-root');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = message;
+  root.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('leaving');
+    setTimeout(() => el.remove(), 220);
+  }, 2600);
+}
+
+/* ============================================================================
+   Screen navigation
+   ========================================================================== */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ============================================================================
+   Table lock (QR code / one-time manual selection)
+   ========================================================================== */
+const TABLE_STORAGE_KEY = 'ros_table';
+
+function getLockedTable() {
+  try {
+    const raw = localStorage.getItem(TABLE_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data && data.locked && Number.isInteger(data.id)) return data;
+  } catch { /* ignore malformed storage */ }
+  return null;
+}
+
+function persistLockedTable(table) {
+  localStorage.setItem(TABLE_STORAGE_KEY, JSON.stringify({ id: table.id, name: table.name, locked: true }));
+}
+
+function updateTablePill(table) {
+  document.getElementById('menu-table-pill').textContent = `${t('table')} ${table.name.replace(/[^0-9]/g, '') || table.name}`;
+}
+
+/* Locks the customer into this table for the rest of the browser session:
+   persists it to localStorage (survives reloads and Render free-tier
+   spin-downs) and permanently hides the "change table" affordance. */
+function lockTableSelection(table) {
+  state.selectedTable = table;
+  state.pendingTable = null;
+  persistLockedTable(table);
+  document.getElementById('btn-back-tables').classList.add('hidden');
+  hideTableConfirmBar();
+  updateTablePill(table);
+  renderMenu();
+  showScreen('screen-menu');
+}
+
+/* Returns the customer to wherever they belong: their locked table's menu
+   if they have one, or the one-time table picker if they don't (used by
+   "new order" and when leaving admin mode — never wipes an existing lock). */
+function goToCustomerHome() {
+  if (state.selectedTable) {
+    renderMenu();
+    showScreen('screen-menu');
+  } else {
+    renderTables();
+    showScreen('screen-tables');
+  }
+}
+
+/* ============================================================================
+   Init
+   ========================================================================== */
+async function init() {
+  try {
+    const data = await api('/api/public');
+    state.publicData = data;
+
+    if (!data.restaurant.open) {
+      document.getElementById('brand-name').textContent = data.restaurant.name;
+      document.getElementById('closed-message').textContent =
+        data.restaurant.openingMessage || '';
+      showScreen('screen-closed');
+      applyLanguage(currentLang);
+      return;
+    }
+
+    document.getElementById('brand-name').textContent = data.restaurant.name;
+    document.getElementById('menu-brand-name').textContent = data.restaurant.name;
+    if (data.restaurant.logo) {
+      const logo = document.getElementById('brand-logo');
+      logo.src = data.restaurant.logo;
+      logo.classList.remove('hidden');
+    }
+
+    // 1) QR code entry — ?table=<id> — always wins and (re)locks the table.
+    const params = new URLSearchParams(window.location.search);
+    const qrTableId = Number(params.get('table'));
+    let resolvedTable = null;
+
+    if (Number.isInteger(qrTableId) && qrTableId > 0) {
+      const match = data.tables.find((tb) => tb.id === qrTableId);
+      if (match) {
+        resolvedTable = match;
+        // Clean the URL so a refresh relies on localStorage, not the query string.
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+
+    // 2) Otherwise, resume a previously locked table (manual pick or earlier QR scan).
+    if (!resolvedTable) {
+      const locked = getLockedTable();
+      if (locked) {
+        const match = data.tables.find((tb) => tb.id === locked.id);
+        resolvedTable = match || { id: locked.id, name: locked.name };
+      }
+    }
+
+    if (resolvedTable) {
+      lockTableSelection(resolvedTable);
+    } else {
+      // 3) First visit, no QR — one-time manual selection screen.
+      renderTables();
+      showScreen('screen-tables');
+    }
+
+    applyLanguage(currentLang);
+    startOrderPolling();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+/* ============================================================================
+   Tables
+   ========================================================================== */
+function renderTables() {
+  const grid = document.getElementById('tables-grid');
+  const empty = document.getElementById('tables-empty');
+  const tables = (state.publicData && state.publicData.tables) || [];
+  grid.innerHTML = '';
+  empty.classList.toggle('hidden', tables.length > 0);
+  state.pendingTable = null;
+  hideTableConfirmBar();
+
+  tables.forEach((table, idx) => {
+    const card = document.createElement('div');
+    card.className = 'table-card';
+    card.style.animationDelay = `${idx * 0.03}s`;
+    card.innerHTML = `<span class="table-icon">🍽️</span><span class="table-name">${escapeHtml(table.name)}</span>`;
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.table-card').forEach((c) => c.classList.remove('selected'));
+      card.classList.add('selected');
+      state.pendingTable = table;
+      showTableConfirmBar(table);
     });
-    insertMany(12);
-  }
+    grid.appendChild(card);
+  });
+}
 
-  const catCount = db.prepare('SELECT COUNT(*) AS c FROM categories').get().c;
-  let catIds = {};
-  if (catCount === 0) {
-    const insertCat = db.prepare('INSERT INTO categories (name) VALUES (?)');
-    const names = ['Pizza', 'Tacos', 'Sandwiches', 'Burgers', 'Extras', 'Meals', 'Drinks'];
-    const insertMany = db.transaction(() => {
-      for (const n of names) {
-        const info = insertCat.run(n);
-        catIds[n] = info.lastInsertRowid;
+function showTableConfirmBar(table) {
+  document.getElementById('table-confirm-text').textContent =
+    `${t('table')} ${table.name.replace(/[^0-9]/g, '') || table.name}`;
+  document.getElementById('table-confirm-bar').classList.remove('hidden');
+}
+function hideTableConfirmBar() {
+  document.getElementById('table-confirm-bar').classList.add('hidden');
+}
+function confirmTableSelection() {
+  if (!state.pendingTable) return;
+  lockTableSelection(state.pendingTable);
+}
+
+/* ============================================================================
+   Menu (categories + products)
+   ========================================================================== */
+function renderMenu() {
+  if (!state.publicData) return;
+  const { categories, products } = state.publicData;
+
+  const tabsEl = document.getElementById('category-tabs');
+  tabsEl.innerHTML = '';
+  const allTab = document.createElement('button');
+  allTab.className = `category-tab ${state.activeCategory === 'all' ? 'active' : ''}`;
+  allTab.textContent = t('categories') === 'Categories' ? 'All' : (currentLang === 'ar' ? 'الكل' : 'Tous');
+  allTab.addEventListener('click', () => { state.activeCategory = 'all'; renderMenu(); });
+  tabsEl.appendChild(allTab);
+
+  categories.forEach((cat) => {
+    const btn = document.createElement('button');
+    btn.className = `category-tab ${state.activeCategory === cat.id ? 'active' : ''}`;
+    btn.textContent = cat.name;
+    btn.addEventListener('click', () => { state.activeCategory = cat.id; renderMenu(); });
+    tabsEl.appendChild(btn);
+  });
+
+  const grid = document.getElementById('products-grid');
+  const empty = document.getElementById('products-empty');
+  grid.innerHTML = '';
+
+  const filtered = products.filter((p) =>
+    state.activeCategory === 'all' ? true : p.category_id === state.activeCategory
+  );
+  empty.classList.toggle('hidden', filtered.length > 0);
+
+  filtered.forEach((p, idx) => {
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.style.animationDelay = `${idx * 0.03}s`;
+    card.innerHTML = `
+      <div class="product-image-wrap">
+        ${p.featured ? `<span class="featured-badge">⭐ ${t('featured')}</span>` : ''}
+        <img class="product-image" loading="lazy" src="${escapeAttr(p.image || placeholderImg())}" alt="${escapeAttr(p.name)}" onerror="this.src='${placeholderImg()}'">
+      </div>
+      <div class="product-body">
+        <div class="product-name">${escapeHtml(p.name)}</div>
+        <div class="product-desc">${escapeHtml(p.description || '')}</div>
+        <div class="product-foot">
+          <span class="product-price">${formatPrice(p.price)}</span>
+        </div>
+        <button class="btn-add">+ ${currentLang === 'ar' ? 'إضافة' : (currentLang === 'fr' ? 'Ajouter' : 'Add')}</button>
+      </div>
+    `;
+    card.querySelector('.btn-add').addEventListener('click', () => addToCart(p));
+    grid.appendChild(card);
+  });
+}
+
+/* ---------- image upload helper ----------
+   Wires a "choose image" file input + preview to the upload endpoint.
+   Calls onUploaded(url) once the upload succeeds; the caller decides
+   where that URL gets stored. */
+function wireImageUpload({ fileInputId, previewId, statusId, onUploaded }) {
+  const fileInput = document.getElementById(fileInputId);
+  const preview = document.getElementById(previewId);
+  const statusEl = document.getElementById(statusId);
+  if (!fileInput) return;
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const objectUrl = URL.createObjectURL(file);
+    if (preview) preview.src = objectUrl;
+    if (statusEl) { statusEl.textContent = t('uploading'); statusEl.classList.remove('ok'); }
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+      let data = null;
+      try { data = await res.json(); } catch { data = null; }
+      if (!res.ok) throw new Error((data && data.error) || t('uploadFailed'));
+      onUploaded(data.url);
+      if (statusEl) { statusEl.textContent = t('uploaded'); statusEl.classList.add('ok'); }
+    } catch (err) {
+      if (statusEl) statusEl.textContent = '';
+      toast(err.message || t('uploadFailed'), 'error');
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  });
+}
+
+function placeholderImg() {
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="100%" height="100%" fill="#1a1d29"/></svg>`
+  );
+}
+
+function formatPrice(n) {
+  return `${Number(n).toLocaleString()} ${state.currency}`;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str == null ? '' : str);
+  return div.innerHTML;
+}
+function escapeAttr(str) {
+  return String(str == null ? '' : str).replace(/"/g, '&quot;');
+}
+
+/* ============================================================================
+   Cart
+   ========================================================================== */
+function addToCart(product) {
+  const existing = state.cart.find((it) => it.productId === product.id);
+  if (existing) {
+    existing.qty += 1;
+  } else {
+    state.cart.push({ productId: product.id, name: product.name, price: product.price, image: product.image, qty: 1 });
+  }
+  renderCart();
+  toast(t('added'), 'success');
+}
+
+function changeQty(productId, delta) {
+  const item = state.cart.find((it) => it.productId === productId);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) {
+    state.cart = state.cart.filter((it) => it.productId !== productId);
+  }
+  renderCart();
+}
+
+function removeFromCart(productId) {
+  state.cart = state.cart.filter((it) => it.productId !== productId);
+  renderCart();
+}
+
+function cartTotal() {
+  return state.cart.reduce((sum, it) => sum + it.price * it.qty, 0);
+}
+
+function renderCart() {
+  const list = document.getElementById('cart-items');
+  const empty = document.getElementById('cart-empty');
+  const countEl = document.getElementById('cart-count');
+  const totalCount = state.cart.reduce((s, it) => s + it.qty, 0);
+
+  countEl.textContent = totalCount;
+  countEl.classList.toggle('hidden', totalCount === 0);
+
+  list.innerHTML = '';
+  empty.classList.toggle('hidden', state.cart.length > 0);
+
+  state.cart.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'cart-item';
+    row.innerHTML = `
+      <img class="cart-item-img" src="${escapeAttr(item.image || placeholderImg())}" onerror="this.src='${placeholderImg()}'">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${escapeHtml(item.name)}</div>
+        <div class="cart-item-price">${formatPrice(item.price)}</div>
+      </div>
+      <div class="qty-control">
+        <button class="qty-btn" data-action="dec">−</button>
+        <span class="qty-val">${item.qty}</span>
+        <button class="qty-btn" data-action="inc">+</button>
+      </div>
+    `;
+    row.querySelector('[data-action="dec"]').addEventListener('click', () => changeQty(item.productId, -1));
+    row.querySelector('[data-action="inc"]').addEventListener('click', () => changeQty(item.productId, 1));
+    list.appendChild(row);
+  });
+
+  document.getElementById('cart-total').textContent = formatPrice(cartTotal());
+}
+
+function openCart() {
+  document.getElementById('cart-overlay').classList.remove('hidden');
+  document.getElementById('cart-drawer').classList.add('open');
+}
+function closeCart() {
+  document.getElementById('cart-overlay').classList.add('hidden');
+  document.getElementById('cart-drawer').classList.remove('open');
+}
+
+async function confirmOrder() {
+  if (state.cart.length === 0) return;
+  if (!state.selectedTable) return;
+
+  const btn = document.getElementById('btn-confirm-order');
+  btn.disabled = true;
+  try {
+    const payload = {
+      tableId: state.selectedTable.id,
+      items: state.cart.map((it) => ({ productId: it.productId, qty: it.qty })),
+    };
+    const result = await api('/api/orders', { method: 'POST', body: payload });
+    document.getElementById('order-number').textContent = `Order #${result.orderId}`;
+    state.cart = [];
+    renderCart();
+    closeCart();
+    showScreen('screen-success');
+    addTrackedOrder(result.orderId);
+    startOrderPolling();
+  } catch (err) {
+    toast(err.message === 'Restaurant is currently closed' ? t('closedCannotOrder') : (err.message || t('orderFailed')), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ============================================================================
+   Order tracking + delivery notifications (polling)
+   Survives page reloads / Render free-tier spin-downs via localStorage —
+   we only ever store order ids here, never sensitive data.
+   ========================================================================== */
+const TRACKED_ORDERS_KEY = 'ros_active_orders';
+const POLL_INTERVAL_MS = 5000;
+let pollTimer = null;
+
+function getTrackedOrders() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(TRACKED_ORDERS_KEY) || '[]');
+    return Array.isArray(arr) ? arr.filter((n) => Number.isInteger(n)) : [];
+  } catch {
+    return [];
+  }
+}
+function setTrackedOrders(arr) {
+  localStorage.setItem(TRACKED_ORDERS_KEY, JSON.stringify(arr));
+}
+function addTrackedOrder(id) {
+  const arr = getTrackedOrders();
+  if (!arr.includes(id)) {
+    arr.push(id);
+    setTrackedOrders(arr);
+  }
+}
+function removeTrackedOrder(id) {
+  setTrackedOrders(getTrackedOrders().filter((x) => x !== id));
+  const el = document.getElementById(`delivery-notify-${id}`);
+  if (el) el.remove();
+}
+
+function startOrderPolling() {
+  if (pollTimer) return;
+  pollTrackedOrders();
+  pollTimer = setInterval(pollTrackedOrders, POLL_INTERVAL_MS);
+}
+
+async function pollTrackedOrders() {
+  const ids = getTrackedOrders();
+  if (ids.length === 0) return;
+  try {
+    const data = await api(`/api/orders/status?ids=${ids.join(',')}`);
+    const returnedIds = new Set();
+    const stillActive = [];
+    (data.orders || []).forEach((o) => {
+      returnedIds.add(o.id);
+      if (o.status === 'DELIVERED') {
+        showDeliveryNotification(o);
+        stillActive.push(o.id);
+      } else if (o.status === 'COMPLETED' || o.status === 'CANCELLED') {
+        removeTrackedOrder(o.id);
+      } else {
+        stillActive.push(o.id);
       }
     });
-    insertMany();
-  } else {
-    for (const row of db.prepare('SELECT id, name FROM categories').all()) {
-      catIds[row.name] = row.id;
-    }
-  }
-
-  const prodCount = db.prepare('SELECT COUNT(*) AS c FROM products').get().c;
-  if (prodCount === 0) {
-    const insertProd = db.prepare(`
-      INSERT INTO products (name, description, price, category_id, image, available, featured)
-      VALUES (@name, @description, @price, @category_id, @image, 1, @featured)
-    `);
-    const demo = [
-      {
-        name: 'Margherita',
-        description: 'Tomato, mozzarella and basil',
-        price: 650,
-        category_id: catIds['Pizza'],
-        image: 'https://images.unsplash.com/photo-1604068549290-dea0e4a305ca?w=800&q=80',
-        featured: 1,
-      },
-      {
-        name: 'Pepperoni Pizza',
-        description: 'Spicy pepperoni with mozzarella and tomato sauce',
-        price: 750,
-        category_id: catIds['Pizza'],
-        image: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=800&q=80',
-        featured: 0,
-      },
-      {
-        name: 'Chicken Tacos',
-        description: 'Grilled chicken, salsa, onions and fresh coriander',
-        price: 450,
-        category_id: catIds['Tacos'],
-        image: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=800&q=80',
-        featured: 1,
-      },
-      {
-        name: 'Club Sandwich',
-        description: 'Chicken, egg, lettuce, tomato and mayonnaise',
-        price: 500,
-        category_id: catIds['Sandwiches'],
-        image: 'https://images.unsplash.com/photo-1567234669003-dce7a7a88821?w=800&q=80',
-        featured: 0,
-      },
-      {
-        name: 'Double Burger',
-        description: 'Double beef patty, cheddar, lettuce and secret sauce',
-        price: 800,
-        category_id: catIds['Burgers'],
-        image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800&q=80',
-        featured: 1,
-      },
-      {
-        name: 'Fries',
-        description: 'Crispy golden fries with a pinch of salt',
-        price: 250,
-        category_id: catIds['Extras'],
-        image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=800&q=80',
-        featured: 0,
-      },
-      {
-        name: 'Grilled Chicken Meal',
-        description: 'Grilled chicken breast, rice and grilled vegetables',
-        price: 900,
-        category_id: catIds['Meals'],
-        image: 'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=800&q=80',
-        featured: 0,
-      },
-      {
-        name: 'Fresh Lemonade',
-        description: 'Freshly squeezed lemons with mint',
-        price: 200,
-        category_id: catIds['Drinks'],
-        image: 'https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=800&q=80',
-        featured: 0,
-      },
-      {
-        name: 'Coca Cola',
-        description: 'Chilled 33cl can',
-        price: 150,
-        category_id: catIds['Drinks'],
-        image: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=800&q=80',
-        featured: 0,
-      },
-    ];
-    const insertMany = db.transaction(() => {
-      for (const p of demo) insertProd.run(p);
+    // Orders the server no longer knows about (deleted) shouldn't be tracked forever.
+    ids.forEach((id) => {
+      if (!returnedIds.has(id)) removeTrackedOrder(id);
     });
-    insertMany();
-  }
-
-  const defaults = {
-    restaurant_name: 'Restaurant OS',
-    logo: '',
-    phone: '',
-    address: '',
-    opening_message: 'Welcome! Choose your table and start your order.',
-    open: '1',
-  };
-  const insertSetting = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
-  const existing = new Set(db.prepare('SELECT key FROM settings').all().map((r) => r.key));
-  const insertMany = db.transaction(() => {
-    for (const [k, v] of Object.entries(defaults)) {
-      if (!existing.has(k)) insertSetting.run(k, v);
-    }
-  });
-  insertMany();
-}
-seedIfEmpty();
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-function getSettings() {
-  const rows = db.prepare('SELECT key, value FROM settings').all();
-  const obj = {};
-  for (const r of rows) obj[r.key] = r.value;
-  return obj;
-}
-
-function setSetting(key, value) {
-  db.prepare(`
-    INSERT INTO settings (key, value) VALUES (?, ?)
-    ON CONFLICT(key) DO UPDATE SET value = excluded.value
-  `).run(key, String(value));
-}
-
-function sign(payload) {
-  const json = JSON.stringify(payload);
-  const b64 = Buffer.from(json).toString('base64url');
-  const hmac = crypto.createHmac('sha256', SESSION_SECRET).update(b64).digest('base64url');
-  return `${b64}.${hmac}`;
-}
-
-function verify(token) {
-  if (!token || typeof token !== 'string' || !token.includes('.')) return null;
-  const [b64, hmac] = token.split('.');
-  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(b64).digest('base64url');
-  const a = Buffer.from(hmac || '');
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(b64, 'base64url').toString('utf8'));
-    if (!payload.exp || Date.now() > payload.exp) return null;
-    return payload;
+    setTrackedOrders(stillActive);
   } catch {
-    return null;
+    // Network hiccup or a spinning-down free-tier server — just retry on the next tick.
   }
 }
 
-function createAdminSession(res) {
-  const exp = Date.now() + SESSION_HOURS * 60 * 60 * 1000;
-  const token = sign({ role: 'admin', exp });
-  res.cookie(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: NODE_ENV === 'production',
-    maxAge: SESSION_HOURS * 60 * 60 * 1000,
-    path: '/',
-  });
-}
-
-function requireAdmin(req, res, next) {
-  const token = req.cookies[SESSION_COOKIE];
-  const payload = verify(token);
-  if (!payload || payload.role !== 'admin') {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
-}
-
-function isNonEmptyString(v, maxLen = 300) {
-  return typeof v === 'string' && v.trim().length > 0 && v.length <= maxLen;
-}
-
-function isFiniteNumber(v) {
-  return typeof v === 'number' && Number.isFinite(v);
-}
-
-function toBool01(v) {
-  return v ? 1 : 0;
-}
-
-// Very small login-attempt guard (in-memory, resets on restart)
-const loginAttempts = new Map(); // ip -> { count, resetAt }
-function tooManyAttempts(ip) {
-  const rec = loginAttempts.get(ip);
-  const now = Date.now();
-  if (!rec || now > rec.resetAt) {
-    loginAttempts.set(ip, { count: 0, resetAt: now + 5 * 60 * 1000 });
-    return false;
-  }
-  return rec.count >= 10;
-}
-function registerAttempt(ip) {
-  const rec = loginAttempts.get(ip);
-  if (rec) rec.count += 1;
-}
-
-// ---------------------------------------------------------------------------
-// App setup
-// ---------------------------------------------------------------------------
-const app = express();
-app.disable('x-powered-by');
-app.use(express.json({ limit: '2mb' }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// ---------------------------------------------------------------------------
-// Image uploads (product photos, logo) — stored on local disk under
-// public/uploads and served as static files at /uploads/<file>.
-// NOTE: on hosts with an ephemeral filesystem (e.g. Render's free tier),
-// uploaded files are lost on redeploy/restart unless a persistent disk is
-// attached and mounted at the uploads directory.
-// ---------------------------------------------------------------------------
-const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-    filename: (req, file, cb) => {
-      const ext = (path.extname(file.originalname) || '').toLowerCase().slice(0, 10);
-      const safeExt = /^\.(jpg|jpeg|png|gif|webp|avif)$/.test(ext) ? ext : '.jpg';
-      cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${safeExt}`);
-    },
-  }),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    if (!/^image\/(jpeg|png|gif|webp|avif)$/.test(file.mimetype)) {
-      return cb(new Error('Only image files are allowed'));
+function showDeliveryNotification(order) {
+  if (document.getElementById(`delivery-notify-${order.id}`)) return; // already showing
+  const root = document.getElementById('delivery-notify-root');
+  const card = document.createElement('div');
+  card.className = 'delivery-notify-card';
+  card.id = `delivery-notify-${order.id}`;
+  card.innerHTML = `
+    <div class="delivery-notify-icon">🍽️</div>
+    <div class="delivery-notify-text">
+      <strong>${escapeHtml(t('orderArrivedTitle'))}</strong>
+      <span>${escapeHtml(t('orderArrivedSub').replace('{id}', order.id))}</span>
+    </div>
+    <button class="btn btn-sm" data-confirm-id="${order.id}">${escapeHtml(t('confirmReceipt'))}</button>
+  `;
+  card.querySelector('[data-confirm-id]').addEventListener('click', async (e) => {
+    e.target.disabled = true;
+    try {
+      await api(`/api/orders/${order.id}/confirm`, { method: 'POST' });
+      removeTrackedOrder(order.id);
+      toast(t('receiptConfirmed'), 'success');
+    } catch (err) {
+      e.target.disabled = false;
+      toast(err.message, 'error');
     }
-    cb(null, true);
-  },
-});
-
-app.post('/api/admin/upload', requireAdmin, (req, res) => {
-  upload.single('image')(req, res, (err) => {
-    if (err) return res.status(400).json({ error: err.message || 'Upload failed' });
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    res.status(201).json({ url: `/uploads/${req.file.filename}` });
   });
-});
+  root.appendChild(card);
+}
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-app.get('/api/public', (req, res) => {
-  const settings = getSettings();
-  const tables = db.prepare('SELECT id, name FROM tables WHERE active = 1 ORDER BY id').all();
-  const categories = db.prepare('SELECT id, name FROM categories ORDER BY id').all();
-  const products = db.prepare(`
-    SELECT id, name, description, price, category_id, image, featured
-    FROM products WHERE available = 1 ORDER BY id
-  `).all();
+/* ============================================================================
+   Settings modal / admin login
+   ========================================================================== */
+function openModal(overlayId, modalId) {
+  document.getElementById(overlayId).classList.remove('hidden');
+  document.getElementById(modalId).classList.add('open');
+}
+function closeModal(overlayId, modalId) {
+  document.getElementById(overlayId).classList.add('hidden');
+  document.getElementById(modalId).classList.remove('open');
+}
 
-  res.json({
-    restaurant: {
-      name: settings.restaurant_name || 'Restaurant OS',
-      logo: settings.logo || '',
-      phone: settings.phone || '',
-      address: settings.address || '',
-      openingMessage: settings.opening_message || '',
-      open: settings.open !== '0',
-    },
-    tables,
-    categories,
-    products,
-  });
-});
-
-app.post('/api/orders', (req, res) => {
-  const settings = getSettings();
-  if (settings.open === '0') {
-    return res.status(403).json({ error: 'Restaurant is currently closed' });
+async function submitAdminCode() {
+  const input = document.getElementById('admin-code-input');
+  const errorEl = document.getElementById('admin-login-error');
+  errorEl.classList.add('hidden');
+  try {
+    await api('/api/admin/login', { method: 'POST', body: { code: input.value } });
+    input.value = '';
+    closeModal('admin-login-overlay', 'admin-login-modal');
+    await enterAdmin();
+  } catch (err) {
+    errorEl.textContent = t('invalidCode');
+    errorEl.classList.remove('hidden');
   }
+}
 
-  const { tableId, items } = req.body || {};
+/* ============================================================================
+   Admin dashboard
+   ========================================================================== */
+async function enterAdmin() {
+  closeCart();
+  showScreen('screen-admin');
+  switchAdminView('dashboard');
+  await Promise.all([loadStats(), loadAdminData()]);
+}
 
-  if (!isFiniteNumber(tableId)) {
-    return res.status(400).json({ error: 'Invalid table' });
-  }
-  const table = db.prepare('SELECT * FROM tables WHERE id = ? AND active = 1').get(tableId);
-  if (!table) {
-    return res.status(400).json({ error: 'Invalid or inactive table' });
-  }
-
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'Cart is empty' });
-  }
-  if (items.length > 100) {
-    return res.status(400).json({ error: 'Too many items' });
-  }
-
-  const cleanItems = [];
-  for (const raw of items) {
-    const productId = Number(raw && raw.productId);
-    const qty = Number(raw && raw.qty);
-    if (!Number.isInteger(productId) || productId <= 0) {
-      return res.status(400).json({ error: 'Invalid product' });
-    }
-    if (!Number.isInteger(qty) || qty <= 0 || qty > 50) {
-      return res.status(400).json({ error: 'Invalid quantity' });
-    }
-    const product = db.prepare('SELECT * FROM products WHERE id = ? AND available = 1').get(productId);
-    if (!product) {
-      return res.status(400).json({ error: `Product ${productId} is not available` });
-    }
-    cleanItems.push({ product, qty });
-  }
-
-  // Backend recomputes the total — never trust the frontend price.
-  const total = cleanItems.reduce((sum, it) => sum + it.product.price * it.qty, 0);
-
-  const insertOrder = db.prepare(`
-    INSERT INTO orders (table_id, table_name, total, status) VALUES (?, ?, ?, 'NEW')
-  `);
-  const insertItem = db.prepare(`
-    INSERT INTO order_items (order_id, product_id, name, price, qty)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  const occupyTable = db.prepare(`UPDATE tables SET status = 'occupied' WHERE id = ?`);
-
-  const createOrder = db.transaction(() => {
-    const info = insertOrder.run(table.id, table.name, total);
-    const orderId = info.lastInsertRowid;
-    for (const it of cleanItems) {
-      insertItem.run(orderId, it.product.id, it.product.name, it.product.price, it.qty);
-    }
-    occupyTable.run(table.id);
-    return orderId;
-  });
-
-  const orderId = createOrder();
-  res.status(201).json({ orderId, total });
-});
-
-// ---------------------------------------------------------------------------
-// Public: order status polling (used by the customer's browser to detect
-// when the admin marks an order as delivered) and delivery confirmation.
-// ---------------------------------------------------------------------------
-app.get('/api/orders/status', (req, res) => {
-  const idsParam = req.query.ids;
-  if (!isNonEmptyString(idsParam, 500)) return res.json({ orders: [] });
-
-  const ids = String(idsParam)
-    .split(',')
-    .map((s) => Number(s.trim()))
-    .filter((n) => Number.isInteger(n) && n > 0)
-    .slice(0, 50);
-  if (ids.length === 0) return res.json({ orders: [] });
-
-  const placeholders = ids.map(() => '?').join(',');
-  const rows = db.prepare(`
-    SELECT id, status, table_name, total, created_at
-    FROM orders WHERE id IN (${placeholders})
-  `).all(...ids);
-  res.json({ orders: rows });
-});
-
-app.post('/api/orders/:id/confirm', (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid order id' });
-
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-  if (!order) return res.status(404).json({ error: 'Order not found' });
-  if (order.status !== 'DELIVERED') {
-    return res.status(400).json({ error: 'Order is not marked as delivered yet' });
-  }
-
-  db.prepare(`UPDATE orders SET status = 'COMPLETED' WHERE id = ?`).run(id);
-  res.json({ ok: true, status: 'COMPLETED' });
-});
-
-// ---------------------------------------------------------------------------
-// Admin auth
-// ---------------------------------------------------------------------------
-app.post('/api/admin/login', (req, res) => {
-  const ip = req.ip || 'unknown';
-  if (tooManyAttempts(ip)) {
-    return res.status(429).json({ error: 'Too many attempts, try again later' });
-  }
-  const { code } = req.body || {};
-  if (!isNonEmptyString(code, 200)) {
-    registerAttempt(ip);
-    return res.status(401).json({ error: 'Invalid admin code' });
-  }
-
-  const a = Buffer.from(String(code));
-  const b = Buffer.from(String(ADMIN_CODE));
-  const valid = a.length === b.length && crypto.timingSafeEqual(a, b);
-
-  if (!valid) {
-    registerAttempt(ip);
-    return res.status(401).json({ error: 'Invalid admin code' });
-  }
-
-  createAdminSession(res);
-  res.json({ ok: true });
-});
-
-app.post('/api/admin/logout', (req, res) => {
-  res.clearCookie(SESSION_COOKIE, { path: '/' });
-  res.json({ ok: true });
-});
-
-app.get('/api/admin/me', (req, res) => {
-  const payload = verify(req.cookies[SESSION_COOKIE]);
-  res.json({ authenticated: !!payload });
-});
-
-// ---------------------------------------------------------------------------
-// Admin: dashboard data
-// ---------------------------------------------------------------------------
-app.get('/api/admin/stats', requireAdmin, (req, res) => {
-  const total = db.prepare('SELECT COUNT(*) AS c FROM orders').get().c;
-  const byStatus = (status) =>
-    db.prepare('SELECT COUNT(*) AS c FROM orders WHERE status = ?').get(status).c;
-  const revenue = db.prepare(`
-    SELECT COALESCE(SUM(total), 0) AS r FROM orders WHERE status != 'CANCELLED'
-  `).get().r;
-
-  res.json({
-    totalOrders: total,
-    newOrders: byStatus('NEW'),
-    preparing: byStatus('PREPARING'),
-    ready: byStatus('READY'),
-    delivered: byStatus('DELIVERED'),
-    completed: byStatus('COMPLETED'),
-    cancelled: byStatus('CANCELLED'),
-    totalRevenue: revenue,
-  });
-});
-
-app.get('/api/admin/orders', requireAdmin, (req, res) => {
-  const orders = db.prepare('SELECT * FROM orders ORDER BY id DESC').all();
-  const itemStmt = db.prepare('SELECT * FROM order_items WHERE order_id = ?');
-  const result = orders.map((o) => ({ ...o, items: itemStmt.all(o.id) }));
-  res.json(result);
-});
-
-const VALID_STATUSES = ['NEW', 'PREPARING', 'READY', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
-app.patch('/api/admin/orders/:id', requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  const { status } = req.body || {};
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid order id' });
-  if (!VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' });
-
-  const info = db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
-  if (info.changes === 0) return res.status(404).json({ error: 'Order not found' });
-  res.json({ ok: true });
-});
-
-app.get('/api/admin/data', requireAdmin, (req, res) => {
-  const products = db.prepare('SELECT * FROM products ORDER BY id').all();
-  const categories = db.prepare('SELECT * FROM categories ORDER BY id').all();
-  const tables = db.prepare('SELECT * FROM tables ORDER BY id').all();
-  const settings = getSettings();
-  res.json({ products, categories, tables, settings });
-});
-
-// ---------------------------------------------------------------------------
-// Admin: products
-// ---------------------------------------------------------------------------
-app.post('/api/admin/products', requireAdmin, (req, res) => {
-  const { name, description, price, category_id, image, available, featured } = req.body || {};
-  if (!isNonEmptyString(name, 150)) return res.status(400).json({ error: 'Invalid name' });
-  if (!isFiniteNumber(price) || price < 0) return res.status(400).json({ error: 'Invalid price' });
-  if (description !== undefined && typeof description !== 'string') {
-    return res.status(400).json({ error: 'Invalid description' });
-  }
-  if (image !== undefined && typeof image !== 'string') {
-    return res.status(400).json({ error: 'Invalid image' });
-  }
-  let catId = null;
-  if (category_id !== undefined && category_id !== null) {
-    if (!Number.isInteger(category_id)) return res.status(400).json({ error: 'Invalid category' });
-    const cat = db.prepare('SELECT id FROM categories WHERE id = ?').get(category_id);
-    if (!cat) return res.status(400).json({ error: 'Category not found' });
-    catId = category_id;
-  }
-
-  const info = db.prepare(`
-    INSERT INTO products (name, description, price, category_id, image, available, featured)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    name.trim(),
-    (description || '').trim(),
-    price,
-    catId,
-    (image || '').trim(),
-    toBool01(available !== false),
-    toBool01(!!featured)
+function switchAdminView(view) {
+  document.querySelectorAll('.admin-nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.admin-view').forEach((v) => v.classList.remove('active'));
+  document.getElementById(`admin-view-${view}`).classList.add('active');
+  document.getElementById('admin-view-title').textContent = t(
+    { dashboard: 'dashboard', orders: 'orders', products: 'products', categories: 'categories', tables: 'tables', settings: 'restaurantSettings' }[view]
   );
-  res.status(201).json({ id: info.lastInsertRowid });
-});
+  if (view === 'orders') loadOrders();
+}
 
-app.put('/api/admin/products/:id', requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid product id' });
-  const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
-  if (!existing) return res.status(404).json({ error: 'Product not found' });
-
-  const { name, description, price, category_id, image, available, featured } = req.body || {};
-  if (!isNonEmptyString(name, 150)) return res.status(400).json({ error: 'Invalid name' });
-  if (!isFiniteNumber(price) || price < 0) return res.status(400).json({ error: 'Invalid price' });
-
-  let catId = null;
-  if (category_id !== undefined && category_id !== null) {
-    if (!Number.isInteger(category_id)) return res.status(400).json({ error: 'Invalid category' });
-    const cat = db.prepare('SELECT id FROM categories WHERE id = ?').get(category_id);
-    if (!cat) return res.status(400).json({ error: 'Category not found' });
-    catId = category_id;
+async function loadStats() {
+  try {
+    const stats = await api('/api/admin/stats');
+    document.getElementById('stat-total').textContent = stats.totalOrders;
+    document.getElementById('stat-new').textContent = stats.newOrders;
+    document.getElementById('stat-preparing').textContent = stats.preparing;
+    document.getElementById('stat-ready').textContent = stats.ready;
+    document.getElementById('stat-delivered').textContent = stats.delivered;
+    document.getElementById('stat-completed').textContent = stats.completed;
+    document.getElementById('stat-revenue').textContent = formatPrice(stats.totalRevenue);
+  } catch (err) {
+    toast(err.message, 'error');
   }
+}
 
-  db.prepare(`
-    UPDATE products SET name = ?, description = ?, price = ?, category_id = ?, image = ?, available = ?, featured = ?
-    WHERE id = ?
-  `).run(
-    name.trim(),
-    (description || '').trim(),
-    price,
-    catId,
-    (image || '').trim(),
-    toBool01(available !== false),
-    toBool01(!!featured),
-    id
-  );
-  res.json({ ok: true });
-});
+async function loadOrders() {
+  try {
+    const orders = await api('/api/admin/orders');
+    state.adminOrders = orders;
+    renderOrders();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
 
-app.delete('/api/admin/products/:id', requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid product id' });
-  const info = db.prepare('DELETE FROM products WHERE id = ?').run(id);
-  if (info.changes === 0) return res.status(404).json({ error: 'Product not found' });
-  res.json({ ok: true });
-});
+function renderOrders() {
+  const list = document.getElementById('orders-list');
+  const empty = document.getElementById('orders-empty');
+  const orders = state.adminOrders || [];
+  list.innerHTML = '';
+  empty.classList.toggle('hidden', orders.length > 0);
 
-// ---------------------------------------------------------------------------
-// Admin: categories
-// ---------------------------------------------------------------------------
-app.post('/api/admin/categories', requireAdmin, (req, res) => {
-  const { name } = req.body || {};
-  if (!isNonEmptyString(name, 100)) return res.status(400).json({ error: 'Invalid name' });
-  const info = db.prepare('INSERT INTO categories (name) VALUES (?)').run(name.trim());
-  res.status(201).json({ id: info.lastInsertRowid });
-});
+  const statuses = ['NEW', 'PREPARING', 'READY', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
 
-app.put('/api/admin/categories/:id', requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  const { name } = req.body || {};
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid category id' });
-  if (!isNonEmptyString(name, 100)) return res.status(400).json({ error: 'Invalid name' });
-  const info = db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(name.trim(), id);
-  if (info.changes === 0) return res.status(404).json({ error: 'Category not found' });
-  res.json({ ok: true });
-});
-
-app.delete('/api/admin/categories/:id', requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid category id' });
-  const existing = db.prepare('SELECT id FROM categories WHERE id = ?').get(id);
-  if (!existing) return res.status(404).json({ error: 'Category not found' });
-
-  // Products that belonged to this category become uncategorized instead of
-  // breaking the database or being silently deleted.
-  const tx = db.transaction(() => {
-    db.prepare('UPDATE products SET category_id = NULL WHERE category_id = ?').run(id);
-    db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  orders.forEach((order, idx) => {
+    const card = document.createElement('div');
+    card.className = 'order-card';
+    card.style.animationDelay = `${idx * 0.04}s`;
+    const itemsLine = order.items.map((it) => `${escapeHtml(it.name)} x${it.qty}`).join(', ');
+    card.innerHTML = `
+      <div class="order-card-head">
+        <span class="order-id">#${order.id}</span>
+        <span class="status-badge status-${order.status}">${order.status}</span>
+      </div>
+      <div class="order-table">${escapeHtml(order.table_name)} · ${new Date(order.created_at).toLocaleString()}</div>
+      <div class="order-items-line">${itemsLine}</div>
+      <div class="order-card-foot">
+        <span class="order-total">${formatPrice(order.total)}</span>
+        <select class="status-select" data-id="${order.id}">
+          ${statuses.map((s) => `<option value="${s}" ${s === order.status ? 'selected' : ''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    `;
+    card.querySelector('.status-select').addEventListener('change', async (e) => {
+      try {
+        await api(`/api/admin/orders/${order.id}`, { method: 'PATCH', body: { status: e.target.value } });
+        toast(t('saved'), 'success');
+        loadStats();
+        loadOrders();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+    list.appendChild(card);
   });
-  tx();
-  res.json({ ok: true });
-});
+}
 
-// ---------------------------------------------------------------------------
-// Admin: tables
-// ---------------------------------------------------------------------------
-app.post('/api/admin/tables', requireAdmin, (req, res) => {
-  const { name } = req.body || {};
-  if (!isNonEmptyString(name, 100)) return res.status(400).json({ error: 'Invalid name' });
-  const info = db.prepare('INSERT INTO tables (name, active) VALUES (?, 1)').run(name.trim());
-  res.status(201).json({ id: info.lastInsertRowid });
-});
-
-app.patch('/api/admin/tables/:id', requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid table id' });
-  const existing = db.prepare('SELECT * FROM tables WHERE id = ?').get(id);
-  if (!existing) return res.status(404).json({ error: 'Table not found' });
-
-  const { name, active, status } = req.body || {};
-  const newName = name !== undefined ? name : existing.name;
-  const newActive = active !== undefined ? toBool01(!!active) : existing.active;
-  if (!isNonEmptyString(newName, 100)) return res.status(400).json({ error: 'Invalid name' });
-
-  let newStatus = existing.status;
-  if (status !== undefined) {
-    if (!['empty', 'occupied'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
-    newStatus = status;
+async function loadAdminData() {
+  try {
+    const data = await api('/api/admin/data');
+    state.adminData = data;
+    renderAdminProducts();
+    renderAdminCategories();
+    renderAdminTables();
+    fillSettingsForm();
+  } catch (err) {
+    toast(err.message, 'error');
   }
+}
 
-  db.prepare('UPDATE tables SET name = ?, active = ?, status = ? WHERE id = ?').run(newName.trim(), newActive, newStatus, id);
-  res.json({ ok: true });
-});
+function categoryName(id) {
+  const cat = (state.adminData.categories || []).find((c) => c.id === id);
+  return cat ? cat.name : t('noCategory');
+}
 
-// ---------------------------------------------------------------------------
-// Admin: restaurant settings
-// ---------------------------------------------------------------------------
-app.put('/api/admin/settings', requireAdmin, (req, res) => {
-  const { restaurant_name, logo, phone, address, opening_message, open } = req.body || {};
-  if (restaurant_name !== undefined) {
-    if (!isNonEmptyString(restaurant_name, 150)) return res.status(400).json({ error: 'Invalid name' });
-    setSetting('restaurant_name', restaurant_name.trim());
+function renderAdminProducts() {
+  const list = document.getElementById('admin-products-list');
+  list.innerHTML = '';
+  (state.adminData.products || []).forEach((p, idx) => {
+    const row = document.createElement('div');
+    row.className = 'admin-item-card';
+    row.style.animationDelay = `${idx * 0.04}s`;
+    row.innerHTML = `
+      <img class="admin-item-img" src="${escapeAttr(p.image || placeholderImg())}" onerror="this.src='${placeholderImg()}'">
+      <div class="admin-item-info">
+        <div class="admin-item-title">
+          ${escapeHtml(p.name)}
+          ${!p.available ? `<span class="badge-off">${t('disable')}</span>` : ''}
+          ${p.featured ? `<span class="badge-featured">${t('featured')}</span>` : ''}
+        </div>
+        <div class="admin-item-sub">${escapeHtml(categoryName(p.category_id))} · ${formatPrice(p.price)}</div>
+      </div>
+      <div class="admin-item-actions">
+        <button class="btn btn-ghost btn-sm" data-action="edit">${t('edit')}</button>
+        <button class="btn btn-danger btn-sm" data-action="delete">${t('delete')}</button>
+      </div>
+    `;
+    row.querySelector('[data-action="edit"]').addEventListener('click', () => openProductForm(p));
+    row.querySelector('[data-action="delete"]').addEventListener('click', () => deleteProduct(p.id));
+    list.appendChild(row);
+  });
+}
+
+function renderAdminCategories() {
+  const list = document.getElementById('admin-categories-list');
+  list.innerHTML = '';
+  (state.adminData.categories || []).forEach((c, idx) => {
+    const row = document.createElement('div');
+    row.className = 'admin-item-card';
+    row.style.animationDelay = `${idx * 0.04}s`;
+    row.innerHTML = `
+      <div class="admin-item-info">
+        <div class="admin-item-title">${escapeHtml(c.name)}</div>
+      </div>
+      <div class="admin-item-actions">
+        <button class="btn btn-ghost btn-sm" data-action="edit">${t('edit')}</button>
+        <button class="btn btn-danger btn-sm" data-action="delete">${t('delete')}</button>
+      </div>
+    `;
+    row.querySelector('[data-action="edit"]').addEventListener('click', () => openCategoryForm(c));
+    row.querySelector('[data-action="delete"]').addEventListener('click', () => deleteCategory(c.id));
+    list.appendChild(row);
+  });
+}
+
+function renderAdminTables() {
+  const list = document.getElementById('admin-tables-list');
+  list.innerHTML = '';
+  (state.adminData.tables || []).forEach((tbl, idx) => {
+    const row = document.createElement('div');
+    row.className = 'admin-item-card';
+    row.style.animationDelay = `${idx * 0.04}s`;
+    const occupied = tbl.status === 'occupied';
+    row.innerHTML = `
+      <div class="admin-item-info">
+        <div class="admin-item-title">
+          ${escapeHtml(tbl.name)}
+          ${!tbl.active ? `<span class="badge-off">${t('disable')}</span>` : ''}
+          <span class="badge-status ${occupied ? 'occupied' : 'empty'}">${occupied ? t('tableOccupied') : t('tableEmpty')}</span>
+        </div>
+      </div>
+      <div class="admin-item-actions">
+        <button class="btn btn-ghost btn-sm" data-action="toggle-status">${occupied ? t('markEmpty') : t('markOccupied')}</button>
+        <button class="btn btn-ghost btn-sm" data-action="edit">${t('edit')}</button>
+        <button class="btn btn-ghost btn-sm" data-action="toggle">${tbl.active ? t('disable') : t('enable')}</button>
+      </div>
+    `;
+    row.querySelector('[data-action="edit"]').addEventListener('click', () => openTableForm(tbl));
+    row.querySelector('[data-action="toggle"]').addEventListener('click', () => toggleTable(tbl));
+    row.querySelector('[data-action="toggle-status"]').addEventListener('click', () => toggleTableStatus(tbl));
+    list.appendChild(row);
+  });
+}
+
+async function toggleTableStatus(table) {
+  try {
+    const newStatus = table.status === 'occupied' ? 'empty' : 'occupied';
+    await api(`/api/admin/tables/${table.id}`, { method: 'PATCH', body: { status: newStatus } });
+    toast(t('saved'), 'success');
+    loadAdminData();
+  } catch (err) {
+    toast(err.message, 'error');
   }
-  if (logo !== undefined) setSetting('logo', String(logo).trim().slice(0, 2000));
-  if (phone !== undefined) setSetting('phone', String(phone).trim().slice(0, 50));
-  if (address !== undefined) setSetting('address', String(address).trim().slice(0, 300));
-  if (opening_message !== undefined) setSetting('opening_message', String(opening_message).trim().slice(0, 300));
-  if (open !== undefined) setSetting('open', open ? '1' : '0');
-  res.json({ ok: true });
-});
+}
 
-// ---------------------------------------------------------------------------
-// Fallback: serve the SPA for any other route
-// ---------------------------------------------------------------------------
-app.get('*', (req, res) => {
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'Not found' });
+function fillSettingsForm() {
+  const s = state.adminData.settings || {};
+  document.getElementById('setting-name').value = s.restaurant_name || '';
+  document.getElementById('setting-logo').value = s.logo || '';
+  document.getElementById('setting-logo-preview').src = s.logo || placeholderImg();
+  document.getElementById('setting-phone').value = s.phone || '';
+  document.getElementById('setting-address').value = s.address || '';
+  document.getElementById('setting-message').value = s.opening_message || '';
+  document.getElementById('setting-open').checked = s.open !== '0';
+}
+
+async function saveSettings() {
+  try {
+    await api('/api/admin/settings', {
+      method: 'PUT',
+      body: {
+        restaurant_name: document.getElementById('setting-name').value,
+        logo: document.getElementById('setting-logo').value,
+        phone: document.getElementById('setting-phone').value,
+        address: document.getElementById('setting-address').value,
+        opening_message: document.getElementById('setting-message').value,
+        open: document.getElementById('setting-open').checked,
+      },
+    });
+    toast(t('saved'), 'success');
+    loadAdminData();
+  } catch (err) {
+    toast(err.message, 'error');
   }
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+}
 
-// ---------------------------------------------------------------------------
-app.listen(PORT, () => {
-  console.log(`Restaurant OS running at http://localhost:${PORT}`);
+/* ---------- generic form modal ---------- */
+function openFormModal(title, bodyHtml, onSubmit) {
+  document.getElementById('form-modal-title').textContent = title;
+  document.getElementById('form-modal-body').innerHTML = bodyHtml;
+  openModal('form-overlay', 'form-modal');
+  const submitBtn = document.getElementById('form-modal-body').querySelector('[data-submit]');
+  if (submitBtn) {
+    submitBtn.addEventListener('click', async () => {
+      submitBtn.disabled = true;
+      try {
+        await onSubmit();
+        closeModal('form-overlay', 'form-modal');
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+}
+
+function openProductForm(product) {
+  const isEdit = !!product;
+  const categories = state.adminData.categories || [];
+  const options = categories.map((c) =>
+    `<option value="${c.id}" ${product && product.category_id === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
+  ).join('');
+
+  let currentImage = product ? (product.image || '') : '';
+
+  const html = `
+    <div class="field-group"><label>${t('name')}</label><input id="f-name" class="input" value="${escapeAttr(product ? product.name : '')}"></div>
+    <div class="field-group"><label>${t('description')}</label><textarea id="f-desc" class="input">${escapeHtml(product ? product.description : '')}</textarea></div>
+    <div class="field-group"><label>${t('price')}</label><input id="f-price" type="number" min="0" step="0.01" class="input" value="${product ? product.price : ''}"></div>
+    <div class="field-group"><label>${t('category')}</label><select id="f-cat" class="input"><option value="">${t('noCategory')}</option>${options}</select></div>
+    <div class="field-group">
+      <label>${t('image')}</label>
+      <div class="image-upload-row">
+        <img id="f-image-preview" class="image-preview" src="${escapeAttr(currentImage || placeholderImg())}" onerror="this.src='${placeholderImg()}'">
+        <div class="image-upload-actions">
+          <label for="f-image-file" class="btn btn-ghost btn-sm">${t('chooseImage')}</label>
+          <input id="f-image-file" type="file" accept="image/*" class="hidden">
+          <span id="f-image-status" class="image-upload-status"></span>
+        </div>
+      </div>
+    </div>
+    <div class="field-group toggle-row"><label>${t('available')}</label><label class="switch"><input id="f-available" type="checkbox" ${!product || product.available ? 'checked' : ''}><span class="slider"></span></label></div>
+    <div class="field-group toggle-row"><label>${t('featured')}</label><label class="switch"><input id="f-featured" type="checkbox" ${product && product.featured ? 'checked' : ''}><span class="slider"></span></label></div>
+    <button class="btn btn-primary btn-block" data-submit>${t('save')}</button>
+  `;
+
+  openFormModal(isEdit ? t('edit') : t('addProduct'), html, async () => {
+    const payload = {
+      name: document.getElementById('f-name').value.trim(),
+      description: document.getElementById('f-desc').value.trim(),
+      price: Number(document.getElementById('f-price').value),
+      category_id: document.getElementById('f-cat').value ? Number(document.getElementById('f-cat').value) : null,
+      image: currentImage,
+      available: document.getElementById('f-available').checked,
+      featured: document.getElementById('f-featured').checked,
+    };
+    if (isEdit) {
+      await api(`/api/admin/products/${product.id}`, { method: 'PUT', body: payload });
+    } else {
+      await api('/api/admin/products', { method: 'POST', body: payload });
+    }
+    toast(t('saved'), 'success');
+    loadAdminData();
+  });
+
+  wireImageUpload({
+    fileInputId: 'f-image-file',
+    previewId: 'f-image-preview',
+    statusId: 'f-image-status',
+    onUploaded: (url) => { currentImage = url; },
+  });
+}
+
+async function deleteProduct(id) {
+  if (!confirm(t('confirmDelete'))) return;
+  try {
+    await api(`/api/admin/products/${id}`, { method: 'DELETE' });
+    toast(t('saved'), 'success');
+    loadAdminData();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function openCategoryForm(category) {
+  const isEdit = !!category;
+  const html = `
+    <div class="field-group"><label>${t('name')}</label><input id="f-cat-name" class="input" value="${escapeAttr(category ? category.name : '')}"></div>
+    <button class="btn btn-primary btn-block" data-submit>${t('save')}</button>
+  `;
+  openFormModal(isEdit ? t('edit') : t('addCategory'), html, async () => {
+    const name = document.getElementById('f-cat-name').value.trim();
+    if (isEdit) {
+      await api(`/api/admin/categories/${category.id}`, { method: 'PUT', body: { name } });
+    } else {
+      await api('/api/admin/categories', { method: 'POST', body: { name } });
+    }
+    toast(t('saved'), 'success');
+    loadAdminData();
+  });
+}
+
+async function deleteCategory(id) {
+  if (!confirm(t('confirmDelete'))) return;
+  try {
+    await api(`/api/admin/categories/${id}`, { method: 'DELETE' });
+    toast(t('saved'), 'success');
+    loadAdminData();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function openTableForm(table) {
+  const isEdit = !!table;
+  const html = `
+    <div class="field-group"><label>${t('name')}</label><input id="f-table-name" class="input" value="${escapeAttr(table ? table.name : '')}"></div>
+    <button class="btn btn-primary btn-block" data-submit>${t('save')}</button>
+  `;
+  openFormModal(isEdit ? t('edit') : t('addTable'), html, async () => {
+    const name = document.getElementById('f-table-name').value.trim();
+    if (isEdit) {
+      await api(`/api/admin/tables/${table.id}`, { method: 'PATCH', body: { name } });
+    } else {
+      await api('/api/admin/tables', { method: 'POST', body: { name } });
+    }
+    toast(t('saved'), 'success');
+    loadAdminData();
+  });
+}
+
+async function toggleTable(table) {
+  try {
+    await api(`/api/admin/tables/${table.id}`, { method: 'PATCH', body: { active: !table.active } });
+    toast(t('saved'), 'success');
+    loadAdminData();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+/* ============================================================================
+   Event wiring
+   ========================================================================== */
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+
+  document.getElementById('btn-settings').addEventListener('click', () => openModal('settings-overlay', 'settings-modal'));
+  document.getElementById('btn-menu-settings').addEventListener('click', () => openModal('settings-overlay', 'settings-modal'));
+  document.getElementById('btn-close-settings').addEventListener('click', () => closeModal('settings-overlay', 'settings-modal'));
+  document.getElementById('settings-overlay').addEventListener('click', () => closeModal('settings-overlay', 'settings-modal'));
+
+  document.querySelectorAll('.lang-btn').forEach((btn) => {
+    btn.addEventListener('click', () => applyLanguage(btn.dataset.lang));
+  });
+
+  document.getElementById('btn-open-admin').addEventListener('click', async () => {
+    closeModal('settings-overlay', 'settings-modal');
+    try {
+      const me = await api('/api/admin/me');
+      if (me.authenticated) {
+        await enterAdmin();
+      } else {
+        openModal('admin-login-overlay', 'admin-login-modal');
+      }
+    } catch {
+      openModal('admin-login-overlay', 'admin-login-modal');
+    }
+  });
+  document.getElementById('btn-close-admin-login').addEventListener('click', () => closeModal('admin-login-overlay', 'admin-login-modal'));
+  document.getElementById('admin-login-overlay').addEventListener('click', () => closeModal('admin-login-overlay', 'admin-login-modal'));
+  document.getElementById('btn-submit-admin-code').addEventListener('click', submitAdminCode);
+  document.getElementById('admin-code-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitAdminCode();
+  });
+
+  document.getElementById('btn-back-tables').addEventListener('click', () => {
+    // Table changes are locked once set (QR scan or one-time manual pick),
+    // so this button stays hidden — this listener is a harmless no-op safeguard.
+    goToCustomerHome();
+  });
+
+  document.getElementById('btn-cart').addEventListener('click', openCart);
+  document.getElementById('btn-close-cart').addEventListener('click', closeCart);
+  document.getElementById('cart-overlay').addEventListener('click', closeCart);
+  document.getElementById('btn-confirm-order').addEventListener('click', confirmOrder);
+
+  document.getElementById('btn-confirm-table').addEventListener('click', confirmTableSelection);
+
+  document.getElementById('btn-new-order').addEventListener('click', () => {
+    goToCustomerHome();
+  });
+
+  document.querySelectorAll('.admin-nav-btn').forEach((btn) => {
+    btn.addEventListener('click', () => switchAdminView(btn.dataset.view));
+  });
+  document.getElementById('btn-exit-admin').addEventListener('click', () => {
+    goToCustomerHome();
+  });
+  document.getElementById('btn-admin-logout').addEventListener('click', async () => {
+    try { await api('/api/admin/logout', { method: 'POST' }); } catch {}
+    goToCustomerHome();
+  });
+
+  wireImageUpload({
+    fileInputId: 'setting-logo-file',
+    previewId: 'setting-logo-preview',
+    statusId: 'setting-logo-status',
+    onUploaded: (url) => { document.getElementById('setting-logo').value = url; },
+  });
+
+  document.getElementById('btn-add-product').addEventListener('click', () => openProductForm(null));
+  document.getElementById('btn-add-category').addEventListener('click', () => openCategoryForm(null));
+  document.getElementById('btn-add-table').addEventListener('click', () => openTableForm(null));
+  document.getElementById('btn-save-settings').addEventListener('click', saveSettings);
+
+  document.getElementById('btn-close-form').addEventListener('click', () => closeModal('form-overlay', 'form-modal'));
+  document.getElementById('form-overlay').addEventListener('click', () => closeModal('form-overlay', 'form-modal'));
 });
