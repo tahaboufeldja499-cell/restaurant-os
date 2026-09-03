@@ -1,11 +1,9 @@
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -45,7 +43,7 @@ let ADMIN_PASSCODE = "1234";
 // Public Endpoints (Client)
 // ==========================================
 
-// 获取 العامة للزبون
+// جلب البيانات العامة للزبون
 app.get('/api/public', (req, res) => {
   res.json({
     restaurant: restaurantData,
