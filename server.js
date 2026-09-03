@@ -27,14 +27,7 @@ if (ADMIN_CODE === 'CHANGE_THIS_ADMIN_CODE' || SESSION_SECRET === 'CHANGE_THIS_S
 // ---------------------------------------------------------------------------
 // Database setup
 // ---------------------------------------------------------------------------
-const DATA_DIR = path.join(__dirname, 'data');
-
-// إنشاء مجلد data تلقائياً إذا لم يكن موجوداً
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-const DB_PATH = path.join(DATA_DIR, 'restaurant.db');
+const DB_PATH = path.join(__dirname, 'data', 'restaurant.db');
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -49,7 +42,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS tables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    active INTEGER NOT NULL DEFAULT 1
+    active INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'empty'
   );
 
   CREATE TABLE IF NOT EXISTS categories (
@@ -71,6 +65,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_id INTEGER,
     table_name TEXT NOT NULL,
     total REAL NOT NULL,
     status TEXT NOT NULL DEFAULT 'NEW',
@@ -86,6 +81,26 @@ db.exec(`
     qty INTEGER NOT NULL,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
   );
+`);
+
+// ---------------------------------------------------------------------------
+// Migrations — add columns that may be missing on a database created by an
+// older version of this app, so upgrading in place never breaks.
+// ---------------------------------------------------------------------------
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!cols.includes(column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+ensureColumn('tables', 'status', "TEXT NOT NULL DEFAULT 'empty'");
+ensureColumn('orders', 'table_id', 'INTEGER');
+
+// Best-effort backfill: link legacy orders (which only stored table_name) to
+// their table_id by matching the name, so table-status logic works for them.
+db.exec(`
+  UPDATE orders SET table_id = (SELECT id FROM tables WHERE tables.name = orders.table_name)
+  WHERE table_id IS NULL
 `);
 
 // ---------------------------------------------------------------------------
@@ -323,7 +338,11 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------------
-// Image uploads
+// Image uploads (product photos, logo) — stored on local disk under
+// public/uploads and served as static files at /uploads/<file>.
+// NOTE: on hosts with an ephemeral filesystem (e.g. Render's free tier),
+// uploaded files are lost on redeploy/restart unless a persistent disk is
+// attached and mounted at the uploads directory.
 // ---------------------------------------------------------------------------
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -421,27 +440,67 @@ app.post('/api/orders', (req, res) => {
     cleanItems.push({ product, qty });
   }
 
+  // Backend recomputes the total — never trust the frontend price.
   const total = cleanItems.reduce((sum, it) => sum + it.product.price * it.qty, 0);
 
   const insertOrder = db.prepare(`
-    INSERT INTO orders (table_name, total, status) VALUES (?, ?, 'NEW')
+    INSERT INTO orders (table_id, table_name, total, status) VALUES (?, ?, ?, 'NEW')
   `);
   const insertItem = db.prepare(`
     INSERT INTO order_items (order_id, product_id, name, price, qty)
     VALUES (?, ?, ?, ?, ?)
   `);
+  const occupyTable = db.prepare(`UPDATE tables SET status = 'occupied' WHERE id = ?`);
 
   const createOrder = db.transaction(() => {
-    const info = insertOrder.run(table.name, total);
+    const info = insertOrder.run(table.id, table.name, total);
     const orderId = info.lastInsertRowid;
     for (const it of cleanItems) {
       insertItem.run(orderId, it.product.id, it.product.name, it.product.price, it.qty);
     }
+    occupyTable.run(table.id);
     return orderId;
   });
 
   const orderId = createOrder();
   res.status(201).json({ orderId, total });
+});
+
+// ---------------------------------------------------------------------------
+// Public: order status polling (used by the customer's browser to detect
+// when the admin marks an order as delivered) and delivery confirmation.
+// ---------------------------------------------------------------------------
+app.get('/api/orders/status', (req, res) => {
+  const idsParam = req.query.ids;
+  if (!isNonEmptyString(idsParam, 500)) return res.json({ orders: [] });
+
+  const ids = String(idsParam)
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0)
+    .slice(0, 50);
+  if (ids.length === 0) return res.json({ orders: [] });
+
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = db.prepare(`
+    SELECT id, status, table_name, total, created_at
+    FROM orders WHERE id IN (${placeholders})
+  `).all(...ids);
+  res.json({ orders: rows });
+});
+
+app.post('/api/orders/:id/confirm', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid order id' });
+
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  if (order.status !== 'DELIVERED') {
+    return res.status(400).json({ error: 'Order is not marked as delivered yet' });
+  }
+
+  db.prepare(`UPDATE orders SET status = 'COMPLETED' WHERE id = ?`).run(id);
+  res.json({ ok: true, status: 'COMPLETED' });
 });
 
 // ---------------------------------------------------------------------------
@@ -497,6 +556,7 @@ app.get('/api/admin/stats', requireAdmin, (req, res) => {
     newOrders: byStatus('NEW'),
     preparing: byStatus('PREPARING'),
     ready: byStatus('READY'),
+    delivered: byStatus('DELIVERED'),
     completed: byStatus('COMPLETED'),
     cancelled: byStatus('CANCELLED'),
     totalRevenue: revenue,
@@ -510,7 +570,7 @@ app.get('/api/admin/orders', requireAdmin, (req, res) => {
   res.json(result);
 });
 
-const VALID_STATUSES = ['NEW', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'];
+const VALID_STATUSES = ['NEW', 'PREPARING', 'READY', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
 app.patch('/api/admin/orders/:id', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const { status } = req.body || {};
@@ -634,6 +694,8 @@ app.delete('/api/admin/categories/:id', requireAdmin, (req, res) => {
   const existing = db.prepare('SELECT id FROM categories WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Category not found' });
 
+  // Products that belonged to this category become uncategorized instead of
+  // breaking the database or being silently deleted.
   const tx = db.transaction(() => {
     db.prepare('UPDATE products SET category_id = NULL WHERE category_id = ?').run(id);
     db.prepare('DELETE FROM categories WHERE id = ?').run(id);
@@ -658,12 +720,18 @@ app.patch('/api/admin/tables/:id', requireAdmin, (req, res) => {
   const existing = db.prepare('SELECT * FROM tables WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Table not found' });
 
-  const { name, active } = req.body || {};
+  const { name, active, status } = req.body || {};
   const newName = name !== undefined ? name : existing.name;
   const newActive = active !== undefined ? toBool01(!!active) : existing.active;
   if (!isNonEmptyString(newName, 100)) return res.status(400).json({ error: 'Invalid name' });
 
-  db.prepare('UPDATE tables SET name = ?, active = ? WHERE id = ?').run(newName.trim(), newActive, id);
+  let newStatus = existing.status;
+  if (status !== undefined) {
+    if (!['empty', 'occupied'].includes(status)) return res.status(400).json({ error: 'Invalid status' });
+    newStatus = status;
+  }
+
+  db.prepare('UPDATE tables SET name = ?, active = ?, status = ? WHERE id = ?').run(newName.trim(), newActive, newStatus, id);
   res.json({ ok: true });
 });
 
