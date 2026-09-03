@@ -15,6 +15,7 @@
 </div>
 
 <div id="toast-root" class="toast-root"></div>
+<div id="delivery-notify-root" class="delivery-notify-root"></div>
 
 <!-- ============ LOADING ============ -->
 <div id="screen-loading" class="screen active">
@@ -51,17 +52,22 @@
       <p data-i18n="noTables">No tables available right now.</p>
     </div>
   </main>
+  <div id="table-confirm-bar" class="table-confirm-bar hidden">
+    <span id="table-confirm-text"></span>
+    <button id="btn-confirm-table" class="btn btn-primary" data-i18n="confirmTable">Confirm</button>
+  </div>
 </div>
 
 <!-- ============ MENU ============ -->
 <div id="screen-menu" class="screen">
   <header class="topbar">
     <div class="brand">
-      <button id="btn-back-tables" class="icon-btn" data-i18n-title="back" title="Back">←</button>
+      <button id="btn-back-tables" class="icon-btn hidden" data-i18n-title="back" title="Back">←</button>
       <span id="menu-brand-name" class="brand-name">Restaurant OS</span>
     </div>
     <div class="topbar-right">
       <span id="menu-table-pill" class="pill">Table 1</span>
+      <button id="btn-menu-settings" class="icon-btn" data-i18n-title="settings" title="Settings">⚙️</button>
       <button id="btn-cart" class="icon-btn cart-btn" data-i18n-title="cart" title="Cart">
         🛒<span id="cart-count" class="cart-count hidden">0</span>
       </button>
@@ -182,6 +188,7 @@
         <div class="stat-card glass"><span class="stat-label" data-i18n="newOrdersLabel">New</span><span id="stat-new" class="stat-value">0</span></div>
         <div class="stat-card glass"><span class="stat-label" data-i18n="preparing">Preparing</span><span id="stat-preparing" class="stat-value">0</span></div>
         <div class="stat-card glass"><span class="stat-label" data-i18n="ready">Ready</span><span id="stat-ready" class="stat-value">0</span></div>
+        <div class="stat-card glass"><span class="stat-label" data-i18n="delivered">Delivered</span><span id="stat-delivered" class="stat-value">0</span></div>
         <div class="stat-card glass"><span class="stat-label" data-i18n="completed">Completed</span><span id="stat-completed" class="stat-value">0</span></div>
         <div class="stat-card glass highlight"><span class="stat-label" data-i18n="totalRevenue">Total Revenue</span><span id="stat-revenue" class="stat-value">0 DA</span></div>
       </div>
