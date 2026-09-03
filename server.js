@@ -25,9 +25,14 @@ if (ADMIN_CODE === 'CHANGE_THIS_ADMIN_CODE' || SESSION_SECRET === 'CHANGE_THIS_S
 }
 
 // ---------------------------------------------------------------------------
-// Database setup
+// Database setup & Safety Checks for Render
 // ---------------------------------------------------------------------------
-const DB_PATH = path.join(__dirname, 'data', 'restaurant.db');
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const DB_PATH = path.join(DATA_DIR, 'restaurant.db');
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
@@ -84,8 +89,7 @@ db.exec(`
 `);
 
 // ---------------------------------------------------------------------------
-// Migrations — add columns that may be missing on a database created by an
-// older version of this app, so upgrading in place never breaks.
+// Migrations
 // ---------------------------------------------------------------------------
 function ensureColumn(table, column, definition) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
@@ -96,8 +100,6 @@ function ensureColumn(table, column, definition) {
 ensureColumn('tables', 'status', "TEXT NOT NULL DEFAULT 'empty'");
 ensureColumn('orders', 'table_id', 'INTEGER');
 
-// Best-effort backfill: link legacy orders (which only stored table_name) to
-// their table_id by matching the name, so table-status logic works for them.
 db.exec(`
   UPDATE orders SET table_id = (SELECT id FROM tables WHERE tables.name = orders.table_name)
   WHERE table_id IS NULL
@@ -312,8 +314,7 @@ function toBool01(v) {
   return v ? 1 : 0;
 }
 
-// Very small login-attempt guard (in-memory, resets on restart)
-const loginAttempts = new Map(); // ip -> { count, resetAt }
+const loginAttempts = new Map();
 function tooManyAttempts(ip) {
   const rec = loginAttempts.get(ip);
   const now = Date.now();
@@ -338,14 +339,12 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------------
-// Image uploads (product photos, logo) — stored on local disk under
-// public/uploads and served as static files at /uploads/<file>.
-// NOTE: on hosts with an ephemeral filesystem (e.g. Render's free tier),
-// uploaded files are lost on redeploy/restart unless a persistent disk is
-// attached and mounted at the uploads directory.
+// Image uploads setup
 // ---------------------------------------------------------------------------
 const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 const upload = multer({
   storage: multer.diskStorage({
@@ -356,7 +355,7 @@ const upload = multer({
       cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${safeExt}`);
     },
   }),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (!/^image\/(jpeg|png|gif|webp|avif)$/.test(file.mimetype)) {
       return cb(new Error('Only image files are allowed'));
@@ -440,7 +439,6 @@ app.post('/api/orders', (req, res) => {
     cleanItems.push({ product, qty });
   }
 
-  // Backend recomputes the total — never trust the frontend price.
   const total = cleanItems.reduce((sum, it) => sum + it.product.price * it.qty, 0);
 
   const insertOrder = db.prepare(`
@@ -467,8 +465,7 @@ app.post('/api/orders', (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Public: order status polling (used by the customer's browser to detect
-// when the admin marks an order as delivered) and delivery confirmation.
+// Public: order status polling
 // ---------------------------------------------------------------------------
 app.get('/api/orders/status', (req, res) => {
   const idsParam = req.query.ids;
@@ -694,8 +691,6 @@ app.delete('/api/admin/categories/:id', requireAdmin, (req, res) => {
   const existing = db.prepare('SELECT id FROM categories WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Category not found' });
 
-  // Products that belonged to this category become uncategorized instead of
-  // breaking the database or being silently deleted.
   const tx = db.transaction(() => {
     db.prepare('UPDATE products SET category_id = NULL WHERE category_id = ?').run(id);
     db.prepare('DELETE FROM categories WHERE id = ?').run(id);
@@ -753,7 +748,7 @@ app.put('/api/admin/settings', requireAdmin, (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// Fallback: serve the SPA for any other route
+// Fallback: serve SPA
 // ---------------------------------------------------------------------------
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
